@@ -1,0 +1,479 @@
+{
+ "_aviso": "Archivo generado por herramientas/exportar_reglas.py. No editar a mano.",
+ "tramites": [
+  {
+   "codigo": "INT_SUBSANA",
+   "nombre": "Subsanación / levantamiento de observaciones",
+   "grupo": "Acto interno",
+   "patron": "\\bSUBSAN|LEVANTAMIENTO\\s*DE\\s*OBSERVACION|RESPUESTA\\s*A\\s*(?:LA\\s*)?OBSERVACION|\\bSUBSANACION"
+  },
+  {
+   "codigo": "INT_NOTIF",
+   "nombre": "Notificación / descargo",
+   "grupo": "Acto interno",
+   "patron": "NOTIFICACION|\\bDESCARGO|EFECTU[EA]\\s*NOTIF|NOTIFICAR|PREVENTIVA\\s*DE\\s*INFRACCION"
+  },
+  {
+   "codigo": "INT_RECONSID",
+   "nombre": "Recurso de reconsideración o apelación",
+   "grupo": "Acto interno",
+   "patron": "RECONSIDERACION|\\bAPELACION|RECURSO\\s*DE"
+  },
+  {
+   "codigo": "INT_DESIST",
+   "nombre": "Desistimiento y devolución",
+   "grupo": "Acto interno",
+   "patron": "DESISTIMIENTO|DEVOLUCION\\s*Y\\s*DESIST|DESISTE"
+  },
+  {
+   "codigo": "INT_AMPL_PLAZO",
+   "nombre": "Ampliación de plazo",
+   "grupo": "Acto interno",
+   "patron": "AMPLIACION\\s*DE\\s*PLAZO|PRORROGA\\s*DE\\s*PLAZO"
+  },
+  {
+   "codigo": "INT_INFORME",
+   "nombre": "Informe / opinión técnica interna",
+   "grupo": "Acto interno",
+   "patron": "^SOLICIT[AO]?\\s*INFORME|^SOL\\s*INFORME|^INFORME\\b|INFORME\\s*(?:TECNICO|DOCUMENTADO|SOBRE)|OPINION\\s*TECNICA|AUTENTICIDAD|PRONUNCIAMIENTO"
+  },
+  {
+   "codigo": "INT_REMITE",
+   "nombre": "Remisión de documentos / conocimiento",
+   "grupo": "Acto interno",
+   "patron": "SE\\s*REMITE|REMIT[AE]|ADJUNTA?R?\\s*DOCUMENTO|^CONOCIMIENTO|SE\\s*DEVUELVE|COPIA\\s*DE\\s*PLANO|CUMPLA\\s*CON\\s*LO\\s*DISPUESTO|TOMAR\\s*ACCIONES|COMUNIC[AO]\\s*DISPOSICION|LO\\s*QUE\\s*(?:SE\\s*)?INDICA|NO\\s*INDICA|INFORMATIVO|\\bAUDIENCIA\\b|\\bOPOSICION\\b|SOLICIT[AO]\\s*INFORMACION|REQUI?ER[EA]\\w*\\s*(?:DE\\s*)?INFORM|REMIT[OAE]\\w*\\s*INFORM|\\bANEXAR?\\b|^INFORMACION|DE\\s*CONOCIMIENTO|\\bCONFORMIDAD\\s*(?:PARA|DE\\s*PRACTICAS)|\\bOFICIO\\b|\\bRECTIFICACION\\b$|^SOLICIT[AO]$"
+  },
+  {
+   "codigo": "INT_RESOLUCION",
+   "nombre": "Emisión / rectificación de resolución",
+   "grupo": "Acto interno",
+   "patron": "^RESOLUCION\\s*DE|RECTIFICACION\\s*DE\\s*RESOLUCION|LIBRE\\s*DISPONIBILIDAD"
+  },
+  {
+   "codigo": "INT_COPIA",
+   "nombre": "Copia certificada de documento o plano",
+   "grupo": "Acto interno",
+   "patron": "\\bCOPIAS?\\b|COPIA\\s*CERTIFICADA|FOTOCOPIA"
+  },
+  {
+   "codigo": "INT_OPINION_LEGAL",
+   "nombre": "Opinión legal",
+   "grupo": "Acto interno",
+   "patron": "OPINION\\s*LEGAL|\\bLEGAL\\b"
+  },
+  {
+   "codigo": "INT_DEVOLUCION",
+   "nombre": "Devolución de pago o documentos",
+   "grupo": "Acto interno",
+   "patron": "DEVOLUCION\\s*(?:DE\\s*)?(?:PAGO|DOCUMENTO|EXPEDIENTE)|\\bDEVOLUCION\\b|\\bDEVOLVER\\b"
+  },
+  {
+   "codigo": "INT_SILENCIO",
+   "nombre": "Silencio administrativo",
+   "grupo": "Acto interno",
+   "patron": "SILENCIO\\s*ADMINISTRATIVO"
+  },
+  {
+   "codigo": "INT_PRACTICAS",
+   "nombre": "Prácticas pre profesionales",
+   "grupo": "Acto interno",
+   "patron": "PRACTICAS|PRE\\s*PROFESIONAL"
+  },
+  {
+   "codigo": "INT_RIESGO",
+   "nombre": "Disposición por riesgo",
+   "grupo": "Acto interno",
+   "patron": "RIESGO\\s*ELECTRICO|\\bRIESGO\\b|DISPOSICION\\s*DE\\s*MEDIDA"
+  },
+  {
+   "codigo": "CONST_POSESION",
+   "nombre": "Constancia de posesión",
+   "grupo": "Catastro",
+   "patron": "(?:CONSTANCIAS?|CONSTACIA|CONTANCIA|COSNTANCIA|CONST\\b).*(?:POSESION|POSECION|POSSESION|POCESION)|(?:POSESION|POSECION|POSSESION|POCESION)|(?:CERTIFICADOS?|CERTIFICDAO|CERTIF|CERTF|CERT).*(?:POSESION|POSECION|POSSESION|POCESION)"
+  },
+  {
+   "codigo": "PRESC_ADQ",
+   "nombre": "Prescripción adquisitiva de dominio",
+   "grupo": "Catastro",
+   "patron": "(?:PRE+SCRIPCION|PRESC\\b|\\bP\\s*A\\s*D\\b|\\bPAD\\b).*ADQUISITIV|ADQUISITIVA\\s*DE\\s*DOMINIO|^(?:PRE+SCRIPCION|PRESC\\b|\\bP\\s*A\\s*D\\b|\\bPAD\\b)$"
+  },
+  {
+   "codigo": "INDEPENDIZACION",
+   "nombre": "Independización de predio rústico",
+   "grupo": "Habilitación urbana",
+   "patron": "INDEPENDIZACION"
+  },
+  {
+   "codigo": "CONST_RUSTICO",
+   "nombre": "Constancia de predio rústico",
+   "grupo": "Catastro",
+   "patron": "(?:CONSTANCIAS?|CONSTACIA|CONTANCIA|COSNTANCIA|CONST\\b).*PREDIO\\s*RUSTICO|PREDIO\\s*RUSTICO"
+  },
+  {
+   "codigo": "SUBDIV_TIERRAS",
+   "nombre": "Subdivisión de tierras",
+   "grupo": "Habilitación urbana",
+   "patron": "(?:SUB\\s*DIVI[SC]ION|SUBDIVI[SC]ION).*TIERRAS|^(?:SUB\\s*DIVI[SC]ION|SUBDIVI[SC]ION)$"
+  },
+  {
+   "codigo": "ACCESO_INFO",
+   "nombre": "Acceso a la información pública",
+   "grupo": "Transparencia",
+   "patron": "ACCESO\\s*A\\s*LA?\\s*INFORMACION|ACCESO\\s*ALA\\s*INFORMACION"
+  },
+  {
+   "codigo": "CAMBIO_USO",
+   "nombre": "Cambio de uso",
+   "grupo": "Autorizaciones",
+   "patron": "CAMBIO\\s*DE\\s*USO"
+  },
+  {
+   "codigo": "CERT_JURISDICCION",
+   "nombre": "Certificado de jurisdicción",
+   "grupo": "Catastro",
+   "patron": "JURI[SD]DICCION|JURIDICCION"
+  },
+  {
+   "codigo": "PLANO_CATASTRAL",
+   "nombre": "Plano catastral",
+   "grupo": "Catastro",
+   "patron": "PLANO\\s*CATASTRAL|CATASTRAL"
+  },
+  {
+   "codigo": "REPLANTEO",
+   "nombre": "Replanteo / verificación de lote",
+   "grupo": "Catastro",
+   "patron": "REPLANTEO|\\bVERIFICACION\\b"
+  },
+  {
+   "codigo": "TERRENO",
+   "nombre": "Disponibilidad o donación de terreno",
+   "grupo": "Otros",
+   "patron": "DISPONIBILIDAD\\s*DE\\s*TERRENO|DONACION\\s*DE\\s*TERRENO|\\bTERRENO\\b"
+  },
+  {
+   "codigo": "HABITABILIDAD",
+   "nombre": "Certificado de habitabilidad",
+   "grupo": "Edificaciones",
+   "patron": "HABITABILIDAD"
+  },
+  {
+   "codigo": "NUM_PREDIAL",
+   "nombre": "Certificado de numeración municipal",
+   "grupo": "Catastro",
+   "patron": "(?:E?NUMERACIONE?S?|NUEMRACION|NUMERAION|NUMERCION|NUM\\b|NUMERAC).*PREDIAL|PREDIAL.*(?:E?NUMERACIONE?S?|NUEMRACION|NUMERAION|NUMERCION|NUM\\b|NUMERAC)|(?:E?NUMERACIONE?S?|NUEMRACION|NUMERAION|NUMERCION|NUM\\b|NUMERAC)\\s*MUNICIPAL|\\bN\\s*P\\s*SERVICIOS|(?:CERTIFICADOS?|CERTIFICDAO|CERTIF|CERTF|CERT)\\s*D?\\s*E?\\s*(?:E?NUMERACIONE?S?|NUEMRACION|NUMERAION|NUMERCION|NUM\\b|NUMERAC)|^(?:E?NUMERACIONE?S?|NUEMRACION|NUMERAION|NUMERCION|NUM\\b|NUMERAC)"
+  },
+  {
+   "codigo": "NEG_CATASTRO",
+   "nombre": "Certificado negativo de catastro",
+   "grupo": "Catastro",
+   "patron": "NEGATIVO.{0,4}\\s*(?:DE\\s*)?(?:CATASTRO|CATSTRO|CATASRO)|(?:CATASTRO|CATSTRO|CATASRO).*NEGATIVO|CERT\\s*NEG(?:ATIVO)?\\b"
+  },
+  {
+   "codigo": "ZONIF_VIAS",
+   "nombre": "Certificado de zonificación y vías",
+   "grupo": "Autorizaciones",
+   "patron": "ZONIFICACION"
+  },
+  {
+   "codigo": "COMPAT_USO",
+   "nombre": "Certificado de compatibilidad de uso",
+   "grupo": "Autorizaciones",
+   "patron": "COMPATIBILIDAD\\s*DE\\s*USO|COMPATIBILIDAD"
+  },
+  {
+   "codigo": "PARAMETROS",
+   "nombre": "Certificado de parámetros urbanísticos y edificatorios",
+   "grupo": "Edificaciones",
+   "patron": "PARAMETROS"
+  },
+  {
+   "codigo": "ALINEAMIENTO",
+   "nombre": "Constancia de alineamiento municipal",
+   "grupo": "Autorizaciones",
+   "patron": "ALINEAMIENTO"
+  },
+  {
+   "codigo": "VISADO_PLANO",
+   "nombre": "Visado de planos y memoria descriptiva",
+   "grupo": "Catastro",
+   "patron": "(?:VISADOS?|VISACION|VIZADO|VISTO BUENO DE PLANO)"
+  },
+  {
+   "codigo": "SUBDIV_LOTE",
+   "nombre": "Subdivisión de lote urbano",
+   "grupo": "Habilitación urbana",
+   "patron": "(?:SUB\\s*DIVI[SC]ION|SUBDIVI[SC]ION).*LOTE|(?:SUB\\s*DIVI[SC]ION|SUBDIVI[SC]ION)"
+  },
+  {
+   "codigo": "OCUP_VIA",
+   "nombre": "Autorización de ocupación de vía pública con materiales",
+   "grupo": "Autorizaciones",
+   "patron": "OCUPACION\\s*DE\\s*VIA|MATERIALES\\s*DE\\s*CONSTRUCCION|VIA\\s*PUBLICA"
+  },
+  {
+   "codigo": "APERT_ZANJA",
+   "nombre": "Autorización para apertura de zanja",
+   "grupo": "Autorizaciones",
+   "patron": "APERTURA\\s*DE\\s*ZANJA|\\bZANJA\\b"
+  },
+  {
+   "codigo": "TELECOM_DESMONT",
+   "nombre": "Desmontaje y retiro de infraestructura de telecomunicaciones",
+   "grupo": "Telecomunicaciones",
+   "patron": "DESMONTAJE|RETIRO\\s*DE\\s*(?:LA\\s*)?INFRAESTRUCTURA"
+  },
+  {
+   "codigo": "TELECOM_INST",
+   "nombre": "Instalación de infraestructura de telecomunicaciones",
+   "grupo": "Telecomunicaciones",
+   "patron": "TELECOMUNICACION|RADIOCOMUNICACION|\\bANTENAS?\\b|FIBRA\\s*OPTICA|CABLE\\s*AEREO|\\bPOSTES?\\b|\\bMURETE\\b|INSTALACION\\s*DE\\s*INFRAESTRUCTURA|FINALIZACION\\s*DE\\s*INSTALACION|\\bACROS\\b"
+  },
+  {
+   "codigo": "CONFORM_OBRA",
+   "nombre": "Conformidad de obra y declaratoria de edificación",
+   "grupo": "Edificaciones",
+   "patron": "CONFORMIDAD\\s*DE\\s*OBRA|DECLARATORIA\\s*DE\\s*EDIFICACION|PREDECLARATORIA"
+  },
+  {
+   "codigo": "LIC_DEMOLICION",
+   "nombre": "Licencia de edificación — demolición",
+   "grupo": "Edificaciones",
+   "patron": "DEMOLICION|DEMOLER|\\bDESMONTE\\b"
+  },
+  {
+   "codigo": "LIC_EDIFICACION",
+   "nombre": "Licencia de edificación / construcción",
+   "grupo": "Edificaciones",
+   "patron": "LICENCIAS?\\s*DE\\s*(?:CONSTRUCCION|EDIFICACION|OBRA)|\\bEDIFICACIONES?\\b|OBRA\\s*NUEVA|\\bTECHO\\b|INICIO\\s*DE\\s*OBRA|\\bAMPLIACION\\b|REMODELACION|REGULARIZACION"
+  },
+  {
+   "codigo": "HAB_URBANA",
+   "nombre": "Habilitación urbana",
+   "grupo": "Habilitación urbana",
+   "patron": "HABILITACION\\s*URBANA|RECEPCION\\s*DE\\s*OBRAS"
+  },
+  {
+   "codigo": "PREDIO_RUSTICO_VIS",
+   "nombre": "Visado de planos para predio rústico",
+   "grupo": "Catastro",
+   "patron": "RUSTICO"
+  },
+  {
+   "codigo": "GEN_RRPP",
+   "nombre": "Trámite con fines registrales (SUNARP)",
+   "grupo": "Otros",
+   "patron": "(?:REGISTROS?\\s*PUBLICOS?|REGIS\\s*PUBLICOS?|\\bR\\s*P\\b|\\bRR\\s*PP\\b|SUNARP)"
+  },
+  {
+   "codigo": "GEN_SSBB",
+   "nombre": "Trámite para servicios básicos",
+   "grupo": "Otros",
+   "patron": "(?:SERVI[CV]I?OS?\\s*BASICOS?|\\bS\\s*B\\b|AGUA\\s*(?:Y\\s*)?(?:LUZ|DESAGUE))"
+  },
+  {
+   "codigo": "GEN_RECT_ESCRIT",
+   "nombre": "Trámite para rectificación de escritura",
+   "grupo": "Otros",
+   "patron": "RECTIFICACION\\s*D?\\s*E?\\s*E?SCRITURA|\\bR\\s*E\\b"
+  }
+ ],
+ "unidades": {
+  "GEDU": [
+   "Gerencia de Desarrollo Urbano",
+   "Gerencia"
+  ],
+  "GDU": [
+   "Gerencia de Desarrollo Urbano",
+   "Gerencia"
+  ],
+  "GDUYT": [
+   "Gerencia de Desarrollo Urbano y Territorial",
+   "Gerencia"
+  ],
+  "GSG": [
+   "Gerencia de Secretaría General",
+   "Gerencia"
+  ],
+  "GESG": [
+   "Gerencia de Secretaría General",
+   "Gerencia"
+  ],
+  "GEMU": [
+   "Gerencia Municipal",
+   "Gerencia"
+  ],
+  "GEAD": [
+   "Gerencia de Administración",
+   "Gerencia"
+  ],
+  "GAT": [
+   "Gerencia de Administración Tributaria",
+   "Gerencia"
+  ],
+  "GPDE": [
+   "Gerencia de Promoción del Desarrollo Económico",
+   "Gerencia"
+  ],
+  "SGAU": [
+   "Sub Gerencia de Autorizaciones Urbanas",
+   "Sub Gerencia"
+  ],
+  "SGCUC": [
+   "Sub Gerencia de Control Urbano y Catastro",
+   "Sub Gerencia"
+  ],
+  "SGPU": [
+   "Sub Gerencia de Planeamiento Urbano",
+   "Sub Gerencia"
+  ],
+  "SGPUC": [
+   "Sub Gerencia de Planeamiento Urbano y Catastro",
+   "Sub Gerencia"
+  ],
+  "SGOP": [
+   "Sub Gerencia de Obras Públicas",
+   "Sub Gerencia"
+  ],
+  "SGEP": [
+   "Sub Gerencia de Estudios y Proyectos",
+   "Sub Gerencia"
+  ],
+  "SGAC": [
+   "Sub Gerencia de Atención al Ciudadano",
+   "Sub Gerencia"
+  ],
+  "SGBPSFL": [
+   "Sub Gerencia de Bienes, Patrimonio y Saneamiento Físico Legal",
+   "Sub Gerencia"
+  ],
+  "SGFIPL": [
+   "Sub Gerencia de Fiscalización, Inspección y Policía Local",
+   "Sub Gerencia"
+  ],
+  "SGRRHH": [
+   "Sub Gerencia de Recursos Humanos",
+   "Sub Gerencia"
+  ],
+  "SGGA": [
+   "Sub Gerencia de Gestión Ambiental",
+   "Sub Gerencia"
+  ],
+  "SGCS": [
+   "Sub Gerencia de Control y Supervisión",
+   "Sub Gerencia"
+  ],
+  "PPM": [
+   "Procuraduría Pública Municipal",
+   "Órgano de asesoría"
+  ],
+  "UF": [
+   "Unidad Formuladora",
+   "Órgano de apoyo"
+  ],
+  "OPMI": [
+   "Oficina de Programación Multianual de Inversiones",
+   "Órgano de apoyo"
+  ],
+  "OCI": [
+   "Órgano de Control Institucional",
+   "Órgano de control"
+  ]
+ },
+ "estados": {
+  "ARCHIVADO": "Archivado",
+  "ARCHIVO": "Archivado",
+  "ABANDONO": "En abandono",
+  "BUSQUEDA": "En búsqueda",
+  "PENDIENTE": "Pendiente",
+  "CONCLUIDO": "Concluido",
+  "ENTREGADO": "Entregado al administrado",
+  "NOTIFICADO": "Notificado"
+ },
+ "prefijos_cargo": "^(?:ARQ|ING|ABOG|ABG|LIC|TEC|SR|SRA|SRTA|DR|CPC)\\s+",
+ "rx_transito": "^(?:PASA\\s+A|DERIVADO\\s+A|VA\\s+A|REMITIDO\\s+A)\\s+",
+ "departamentos": [
+  {
+   "codigo": "DEP_NUMERACION",
+   "nombre": "Departamento de Numeración Municipal",
+   "procedimientos": [
+    "NUM_PREDIAL"
+   ]
+  },
+  {
+   "codigo": "DEP_LICENCIAS_EDIF",
+   "nombre": "Departamento de Licencias de Edificación",
+   "procedimientos": [
+    "LIC_EDIFICACION",
+    "LIC_DEMOLICION",
+    "CONFORM_OBRA"
+   ]
+  },
+  {
+   "codigo": "DEP_VISADO_PLANOS",
+   "nombre": "Departamento de Visado de Planos",
+   "procedimientos": [
+    "VISADO_PLANO",
+    "PREDIO_RUSTICO_VIS"
+   ]
+  },
+  {
+   "codigo": "DEP_PARAMETROS",
+   "nombre": "Departamento de Parámetros Urbanísticos",
+   "procedimientos": [
+    "PARAMETROS"
+   ]
+  },
+  {
+   "codigo": "DEP_NEG_CATASTRO",
+   "nombre": "Departamento de Negativo de Catastro",
+   "procedimientos": [
+    "NEG_CATASTRO"
+   ]
+  },
+  {
+   "codigo": "DEP_SUBDIV_TIERRAS",
+   "nombre": "Departamento de Sub División de Tierras",
+   "procedimientos": [
+    "SUBDIV_TIERRAS",
+    "SUBDIV_LOTE"
+   ]
+  },
+  {
+   "codigo": "DEP_ZONIFICACION",
+   "nombre": "Departamento de Zonificación y Vías",
+   "procedimientos": [
+    "ZONIF_VIAS"
+   ]
+  },
+  {
+   "codigo": "DEP_TELECOM",
+   "nombre": "Departamento de Telecomunicaciones",
+   "procedimientos": [
+    "TELECOM_INST",
+    "TELECOM_DESMONT"
+   ]
+  },
+  {
+   "codigo": "DEP_COMPAT_USO",
+   "nombre": "Departamento de Compatibilidad de Uso",
+   "procedimientos": [
+    "COMPAT_USO"
+   ]
+  },
+  {
+   "codigo": "DEP_APERT_ZANJA",
+   "nombre": "Departamento de Apertura de Zanja",
+   "procedimientos": [
+    "APERT_ZANJA"
+   ]
+  },
+  {
+   "codigo": "DEP_OCUP_VIA",
+   "nombre": "Departamento de Ocupación de Vía",
+   "procedimientos": [
+    "OCUP_VIA"
+   ]
+  }
+ ]
+}

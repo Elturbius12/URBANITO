@@ -1,0 +1,89 @@
+{
+  "name": "urbanito",
+  "productName": "URBANITO",
+  "version": "1.0.0",
+  "description": "URBANITO — Sistema de gestión administrativa de la Gerencia de Desarrollo Urbano, Municipalidad Provincial de San Román",
+  "author": "Howard Lemuel Coila Alberto",
+  "license": "UNLICENSED",
+  "private": true,
+  "main": "compilado/main.js",
+  "scripts": {
+    "compilar": "vite build && node herramientas/compilar_principal.js",
+    "iniciar": "npm run compilar && electron .",
+    "probar": "node pruebas/validar_motor.js semilla/urbanito.db pruebas/referencia_2026-11-05.json 2026-11-05 && node pruebas/prueba_servicios.js semilla/urbanito.db && node pruebas/prueba_importacion.js semilla/urbanito.db",
+    "empaquetar:win": "npm run compilar && electron-builder --win --x64",
+    "empaquetar:linux": "npm run compilar && electron-builder --linux dir",
+    "crear-usuarios": "node herramientas/crear_usuarios_departamentos.js"
+  },
+  "devDependencies": {
+    "@fontsource/inter": "^5.1.0",
+    "@vitejs/plugin-react": "^4.3.2",
+    "electron": "^33.4.11",
+    "electron-builder": "^25.1.8",
+    "exceljs": "^4.4.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "recharts": "^2.12.7",
+    "sql.js": "^1.12.0",
+    "vite": "^5.4.8"
+  },
+  "build": {
+    "appId": "pe.gob.munisanroman.urbanito",
+    "productName": "URBANITO",
+    "copyright": "Howard Lemuel Coila Alberto — Universidad Peruana Unión",
+    "directories": {
+      "output": "distribucion",
+      "buildResources": "recursos"
+    },
+    "files": [
+      "compilado/**/*",
+      "dist/**/*",
+      "package.json",
+      "recursos/icono.png"
+    ],
+    "extraResources": [
+      {
+        "from": "semilla/urbanito.db",
+        "to": "semilla/urbanito.db"
+      }
+    ],
+    "npmRebuild": false,
+    "publish": null,
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "recursos/icono.png",
+      "artifactName": "URBANITO-Instalador-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": "always",
+      "createStartMenuShortcut": true,
+      "shortcutName": "URBANITO",
+      "installerLanguages": [
+        "es_ES"
+      ],
+      "language": "3082",
+      "runAfterFinish": true,
+      "deleteAppDataOnUninstall": false
+    },
+    "linux": {
+      "target": [
+        "dir"
+      ],
+      "icon": "recursos/icono.png"
+    },
+    "extraMetadata": {
+      "main": "compilado/main.js"
+    },
+    "includeSubNodeModules": false
+  }
+}
