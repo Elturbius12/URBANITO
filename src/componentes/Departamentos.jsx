@@ -1,13 +1,14 @@
 // Los 11 departamentos y sus trámites del TUPA.
 import { useState } from 'react'
-import { useDatos } from '../api'
-import { useApp, Panel, Cargando, ErrorCarga, Insignia, Aviso } from './Comunes'
+import { useDatos, llamar } from '../api'
+import { useApp, Panel, Cargando, ErrorCarga, Insignia, Aviso, Modal, Campo, useAccion } from './Comunes'
 import { numero, porcentaje } from '../formato'
 
 export default function Departamentos() {
-  const { version, ir } = useApp()
+  const { version, ir, usuario, refrescar } = useApp()
   const { datos, error, recargar } = useDatos('departamentos', {}, [version])
   const [abierto, setAbierto] = useState(null)
+  const [nuevo, setNuevo] = useState(false)
   if (error) return <ErrorCarga error={error} reintentar={recargar} />
   if (!datos) return <Cargando />
 
@@ -15,6 +16,13 @@ export default function Departamentos() {
     <>
       <Aviso tipo="informativo">Cada departamento agrupa los trámites del TUPA que atiende. Los expedientes históricos vienen del sistema anterior;
         los nuevos se registran en mesa de partes. Un departamento sin expedientes no tuvo casos en los datos importados.</Aviso>
+      {usuario.rol === 'ADMINISTRADOR' && (
+        <div className="grupo-botones" style={{ marginBottom: 12 }}>
+          <button className="boton primario" onClick={() => setNuevo(true)} data-accion="nuevo-departamento">+ Añadir departamento</button>
+          <span className="texto-suave" style={{ fontSize: 12.5 }}>El personal de cada departamento se asigna en «Usuarios» (hasta 2 departamentos por persona).</span>
+        </div>
+      )}
+      {nuevo && <NuevoDepartamento alCerrar={() => setNuevo(false)} alListo={() => { setNuevo(false); recargar(); refrescar() }} />}
       <Panel sinRelleno>
         <table className="tabla">
           <thead><tr><th></th><th>Departamento</th><th className="num">Trámites</th><th className="num">Expedientes</th>
@@ -43,7 +51,7 @@ function FilaDepartamento({ d, abierto, alternar, verBandeja }) {
         <td className="num">{numero(d.total_en_tramite)}</td>
         <td className="num">{d.total_criticos ? <Insignia tipo="CRÍTICO">{d.total_criticos}</Insignia> : 0}</td>
         <td className="num">{d.total_vencidos ? <Insignia tipo="CRÍTICO">{d.total_vencidos}</Insignia> : 0}</td>
-        <td className="suave">{d.usuarios.length ? `${d.usuarios.length} usuario(s)` : 'Sin usuarios asignados'}</td>
+        <td className="suave">{d.usuarios.length ? d.usuarios.map(u => u.nombre).join(', ') : 'Sin usuarios asignados'}</td>
       </tr>
       {abierto && (
         <tr><td></td><td colSpan={7} style={{ background: 'var(--fondo)' }}>
@@ -72,5 +80,27 @@ function FilaDepartamento({ d, abierto, alternar, verBandeja }) {
         </td></tr>
       )}
     </>
+  )
+}
+
+function NuevoDepartamento({ alCerrar, alListo }) {
+  const [f, setF] = useState({ nombre: '', codigo: '' })
+  const { ocupado, error, ejecutar } = useAccion()
+  const guardar = async () => {
+    const r = await ejecutar(() => llamar('crear_departamento', f), 'Departamento creado')
+    if (r) alListo()
+  }
+  return (
+    <Modal titulo="Añadir departamento" alCerrar={alCerrar}
+           pie={<><button className="boton" onClick={alCerrar}>Cancelar</button><button className="boton primario" disabled={ocupado} onClick={guardar}>Crear</button></>}>
+      <div className="formulario">
+        <Campo etiqueta="Nombre" requerido completo ayuda="Ej.: Habilitaciones Urbanas (se antepone «Departamento de»)">
+          <input value={f.nombre} onChange={e => setF({ ...f, nombre: e.target.value })} autoFocus />
+        </Campo>
+        <Campo etiqueta="Código" ayuda="Opcional; si lo deja vacío se genera (DEP_…)"><input value={f.codigo} onChange={e => setF({ ...f, codigo: e.target.value.toUpperCase() })} /></Campo>
+      </div>
+      <p className="texto-suave" style={{ fontSize: 12.5, marginTop: 10 }}>Luego asigne sus trámites en Configuración › Procedimientos y su personal en Usuarios.</p>
+      {error && <div style={{ marginTop: 10 }}><Aviso tipo="error">{error}</Aviso></div>}
+    </Modal>
   )
 }

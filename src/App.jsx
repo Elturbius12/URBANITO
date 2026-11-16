@@ -19,6 +19,11 @@ import Auditoria from './componentes/Auditoria'
 import Ayuda from './componentes/Ayuda'
 import Importar from './componentes/Importar'
 import Ficha from './componentes/Ficha'
+import Asignaciones from './componentes/Asignaciones'
+import Seguimiento from './componentes/Seguimiento'
+import ReporteSemanal from './componentes/ReporteSemanal'
+import Campana from './componentes/Notificaciones'
+import BusquedaUniversal from './componentes/BusquedaUniversal'
 import { fechaLarga, capitalizar } from './formato'
 
 const SECCIONES = [
@@ -32,12 +37,17 @@ const SECCIONES = [
     subtitulo: 'Vencidos, por vencer, estancados y observados' },
   { clave: 'buscar', icono: '⌕', etiqueta: 'Buscar expediente', grupo: 'Gestión diaria', permiso: 'consultar',
     subtitulo: 'Consulta sobre todos los expedientes, actuales e históricos' },
-  { clave: 'importar', icono: '⇪', etiqueta: 'Importar expedientes', grupo: 'Gestión diaria', permiso: 'importar',
-    subtitulo: 'Cargue la data de su departamento desde Excel o CSV' },
+  { clave: 'asignaciones', icono: '⇄', etiqueta: 'Asignaciones', grupo: 'Gestión diaria',
+    permiso: ['asignaciones', 'asignaciones_ver', 'mis_asignaciones'],
+    subtitulo: 'Modelo de asignación óptima de expedientes a trabajadores (MILP)' },
+  { clave: 'importar', icono: '↑', etiqueta: 'Importar datos', grupo: 'Gestión diaria', permiso: 'importar',
+    subtitulo: 'Cargar expedientes desde Excel o CSV y el Control de Expedientes 2026' },
   { clave: 'departamentos', icono: '▤', etiqueta: 'Departamentos', grupo: 'Gestión diaria', permiso: 'departamentos',
     subtitulo: 'Los 11 departamentos y sus trámites del TUPA' },
   { clave: 'tablero', icono: '◔', etiqueta: 'Tablero gerencial', grupo: 'Análisis', permiso: 'tablero',
     subtitulo: 'Indicadores para la toma de decisiones' },
+  { clave: 'seguimiento', icono: '◉', etiqueta: 'Seguimiento', grupo: 'Análisis', permiso: 'seguimiento',
+    subtitulo: 'Avance de cada trabajador, sus asignaciones y reportes semanales' },
   { clave: 'modelos', icono: '∑', etiqueta: 'Modelos IUA y MTA', grupo: 'Análisis', permiso: 'modelos_ver',
     subtitulo: 'Cómo se calcula la prioridad y los tiempos reales' },
   { clave: 'reportes', icono: '⎙', etiqueta: 'Reportes', grupo: 'Análisis', permiso: 'reportes',
@@ -118,6 +128,8 @@ function Marco({ usuario, equipo, estado, notificar, vistaNotificaciones, salir,
   const [fichaId, setFichaId] = useState(null)
   const [contadores, setContadores] = useState(null)
   const [cambiandoClave, setCambiandoClave] = useState(false)
+  const [reporte, setReporte] = useState(null)          // estado del reporte semanal (modal del jueves)
+  const [verReporte, setVerReporte] = useState(false)
   // «Departamento activo»: solo en el estado de la interfaz ('' = todos los suyos)
   const [depActivo, setDepActivo] = useState('')
   const elegibles = usuario.departamentos_elegibles || []
@@ -143,6 +155,17 @@ function Marco({ usuario, equipo, estado, notificar, vistaNotificaciones, salir,
     llamar('resumen').then(setContadores).catch(() => {})
   }, [version])
 
+  // Reporte semanal: se revisa al entrar y cada 5 minutos (el jueves a las 08:00 aparece solo)
+  const revisarReporte = useCallback(() => {
+    if (!puede(usuario, 'reporte_semanal') || usuario.permisos.includes('*')) return
+    llamar('reporte_semanal_estado').then(setReporte).catch(() => {})
+  }, [usuario])
+  useEffect(() => {
+    revisarReporte()
+    const t = setInterval(revisarReporte, 5 * 60000)
+    return () => clearInterval(t)
+  }, [revisarReporte])
+
   const ctx = useMemo(() => ({
     usuario, equipo, estado, notificar, refrescar, version, ir, abrirFicha: setFichaId, depActivo,
   }), [usuario, equipo, estado, notificar, refrescar, version, ir, depActivo])
@@ -155,6 +178,7 @@ function Marco({ usuario, equipo, estado, notificar, vistaNotificaciones, salir,
     buscar: <Buscar inicial={parametros} />, departamentos: <Departamentos />, tablero: <Tablero />,
     modelos: <Modelos />, reportes: <Reportes />, depuracion: <Depuracion />, usuarios: <Usuarios />,
     configuracion: <Configuracion />, auditoria: <Auditoria />, ayuda: <Ayuda />, importar: <Importar />,
+    asignaciones: <Asignaciones />, seguimiento: <Seguimiento inicial={parametros} />,
   }[actual.clave]
 
   return (
@@ -203,6 +227,7 @@ function Marco({ usuario, equipo, estado, notificar, vistaNotificaciones, salir,
               <div className="subtitulo">{actual.subtitulo}</div>
             </div>
             <div className="derecha">
+              {puede(usuario, 'consultar') && <BusquedaUniversal />}
               {conSelector && (
                 <label className="selector-departamento" title="Filtra la bandeja, alertas, tablero, importación y reportes">
                   <span>Departamento activo</span>
@@ -214,6 +239,7 @@ function Marco({ usuario, equipo, estado, notificar, vistaNotificaciones, salir,
               )}
               <span>{contadores ? capitalizar(fechaLarga(contadores.hoy)) : ''}</span>
               <span className="chip-modo">{equipo.modo === 'cliente' ? 'Conectado en red' : 'PC servidor'}</span>
+              <Campana alAbrirReporte={() => { revisarReporte(); setVerReporte(true) }} />
             </div>
           </header>
           <div className="cuerpo" key={`${actual.clave}|${depActivo}`}>{pantalla}</div>
@@ -221,6 +247,10 @@ function Marco({ usuario, equipo, estado, notificar, vistaNotificaciones, salir,
       </div>
 
       {fichaId && <Ficha id={fichaId} alCerrar={() => setFichaId(null)} />}
+      {reporte && reporte.aplica && (reporte.requerido || (verReporte && !reporte.lleno)) && (
+        <ReporteSemanal estado={reporte} alCerrar={() => setVerReporte(false)}
+                        alEnviar={() => { setVerReporte(false); revisarReporte(); refrescar() }} />
+      )}
       {cambiandoClave && (
         <Modal titulo="Cambiar mi contraseña" alCerrar={() => setCambiandoClave(false)}>
           <CambiarClave usuario={usuario} alCancelar={() => setCambiandoClave(false)}

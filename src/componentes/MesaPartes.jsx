@@ -64,6 +64,25 @@ function NuevoExpediente() {
   const [registrado, setRegistrado] = useState(null)
   const { ocupado, error, setError, ejecutar } = useAccion()
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value })
+  // portal ciudadano: si el DNI es nuevo se crea su acceso
+  const [portal, setPortal] = useState(null)        // { existe, administrado } | null
+  const [adm, setAdm] = useState({ crear: true, nombres: '', apellidos: '', whatsapp: '' })
+
+  useEffect(() => {
+    const dni = f.documento_identidad.trim()
+    if (!/^\d{8}$/.test(dni)) { setPortal(null); return undefined }
+    let vivo = true
+    llamar('administrado_buscar', { dni }).then(r => { if (vivo) setPortal(r.aplica ? r : null) }).catch(() => { if (vivo) setPortal(null) })
+    return () => { vivo = false }
+  }, [f.documento_identidad])
+  useEffect(() => {
+    if (!portal || portal.existe) return
+    // propuesta: los dos últimos términos son los apellidos (mesa de partes lo corrige si no es así)
+    const p = f.solicitante.trim().toUpperCase().split(/\s+/).filter(Boolean)
+    setAdm(a => ({ ...a, nombres: p.length > 2 ? p.slice(0, -2).join(' ') : (p[0] || ''), apellidos: p.length > 2 ? p.slice(-2).join(' ') : p.slice(1).join(' '),
+                   whatsapp: a.whatsapp || f.telefono }))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [portal, f.solicitante])
 
   const proc = cat?.procedimientos.find(p => p.codigo === f.procedimiento_codigo)
 
@@ -89,10 +108,11 @@ function NuevoExpediente() {
     const r = await ejecutar(() => llamar('registrar_expediente', {
       ...f, folios: f.folios === '' ? null : Number(f.folios), fecha_ingreso: f.fecha_ingreso || undefined,
       destino: f.destino_codigo ? { tipo: f.destino_tipo, codigo: f.destino_codigo } : undefined,
+      administrado: portal && !portal.existe && adm.crear ? { nombres: adm.nombres, apellidos: adm.apellidos, whatsapp: adm.whatsapp } : undefined,
     }))
     if (r) {
       setRegistrado(r)
-      setF(VACIO)
+      setF(VACIO); setPortal(null); setAdm({ crear: true, nombres: '', apellidos: '', whatsapp: '' })
       refrescar()
     }
   }
@@ -108,6 +128,22 @@ function NuevoExpediente() {
             </Campo>
             <Campo etiqueta="DNI / RUC / Carné de extranjería" requerido><input value={f.documento_identidad} onChange={set('documento_identidad')} data-campo="documento" /></Campo>
             <Campo etiqueta="Teléfono"><input value={f.telefono} onChange={set('telefono')} /></Campo>
+            {portal && portal.existe && (
+              <div className="completo texto-suave" style={{ fontSize: 12.5 }}>✔ Este DNI ya tiene acceso al portal ciudadano (usuario <b className="mono">{portal.administrado.usuario_portal}</b>).</div>
+            )}
+            {portal && !portal.existe && (
+              <div className="completo resaltado">
+                <label className="casilla" style={{ fontWeight: 600 }}><input type="checkbox" checked={adm.crear} onChange={e => setAdm({ ...adm, crear: e.target.checked })} data-campo="crear-portal" />
+                  Solicitante nuevo: crear su acceso al portal ciudadano</label>
+                {adm.crear && (
+                  <div className="formulario" style={{ marginTop: 8, gridTemplateColumns: '1fr 1fr 1fr' }}>
+                    <Campo etiqueta="Nombres" requerido><input value={adm.nombres} onChange={e => setAdm({ ...adm, nombres: e.target.value })} data-campo="nombres" /></Campo>
+                    <Campo etiqueta="Apellidos" requerido><input value={adm.apellidos} onChange={e => setAdm({ ...adm, apellidos: e.target.value })} data-campo="apellidos" /></Campo>
+                    <Campo etiqueta="WhatsApp" ayuda="Celular de 9 dígitos"><input value={adm.whatsapp} onChange={e => setAdm({ ...adm, whatsapp: e.target.value })} data-campo="whatsapp" /></Campo>
+                  </div>
+                )}
+              </div>
+            )}
             <Campo etiqueta="Dirección" completo><input value={f.direccion} onChange={set('direccion')} /></Campo>
             <Campo etiqueta="Trámite (procedimiento TUPA)" requerido completo>
               <select value={f.procedimiento_codigo} onChange={set('procedimiento_codigo')} data-campo="procedimiento">
@@ -193,8 +229,35 @@ function NuevoExpediente() {
             <div className="mono" style={{ fontSize: 30, fontWeight: 700, color: 'var(--azul)' }} data-prueba="numero-registrado">{registrado.numero}</div>
             <p style={{ marginTop: 8 }}>{registrado.constancia.procedimiento}<br /><span className="texto-suave">{registrado.constancia.solicitante} — derivado a {registrado.constancia.destino}</span></p>
           </div>
+          {registrado.credenciales_portal && <CredencialesPortal c={registrado.credenciales_portal} />}
         </Modal>
       )}
     </>
+  )
+}
+
+// Credenciales del portal ciudadano: se muestran UNA vez (la contraseña se guarda cifrada)
+function CredencialesPortal({ c }) {
+  const { notificar } = useApp()
+  const copiar = async () => {
+    try { await navigator.clipboard.writeText(c.mensaje); notificar('Mensaje copiado', 'exito') } catch (_) { notificar('No se pudo copiar', 'error') }
+  }
+  return (
+    <div className="resaltado" style={{ marginTop: 14 }} data-prueba="credenciales-portal">
+      <div style={{ fontWeight: 650, marginBottom: 6 }}>Usuario creado para {c.nombre}</div>
+      <table className="tabla" style={{ background: '#fff' }}><tbody>
+        <tr><td>Usuario</td><td className="mono destacado">{c.usuario}</td></tr>
+        <tr><td>Contraseña</td><td className="mono destacado">{c.clave}</td></tr>
+        <tr><td>Portal</td><td className="mono">{c.url_portal}</td></tr>
+      </tbody></table>
+      <p className="texto-suave" style={{ fontSize: 12, margin: '6px 0' }}>Entréguelas al ciudadano: no se volverán a mostrar. En su primer ingreso deberá cambiar la contraseña.</p>
+      <div className="grupo-botones">
+        {c.enlace_whatsapp
+          ? <button className="boton exito" onClick={async () => { const r = await window.urbanito.abrirEnlace(c.enlace_whatsapp); if (!r.ok) notificar(r.error, 'error') }} data-accion="whatsapp">
+              Enviar credenciales por WhatsApp</button>
+          : <span className="texto-suave" style={{ fontSize: 12.5 }}>Sin número de WhatsApp registrado.</span>}
+        <button className="boton" onClick={copiar}>Copiar mensaje</button>
+      </div>
+    </div>
   )
 }

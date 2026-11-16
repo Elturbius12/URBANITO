@@ -57,7 +57,8 @@ CREATE TABLE IF NOT EXISTS usuarios (
     intentos_fallidos    INTEGER NOT NULL DEFAULT 0,
     bloqueado_hasta      TEXT,
     creado_en            TEXT NOT NULL,
-    ultimo_acceso        TEXT
+    ultimo_acceso        TEXT,
+    capacidad_maxima     INTEGER DEFAULT 10   -- expedientes que puede tener asignados a la vez (modelo MILP)
 );
 
 CREATE TABLE IF NOT EXISTS expedientes (
@@ -111,14 +112,21 @@ CREATE TABLE IF NOT EXISTS movimientos (
     importacion_id      INTEGER REFERENCES importaciones(id)
 );
 
--- Departamentos en que trabaja cada usuario (usuarios.departamento_codigo es el principal)
+-- Departamentos en que trabaja cada usuario (máximo 2). usuarios.departamento_codigo
+-- sigue siendo el principal; es_principal = 1 lo replica aquí.
 CREATE TABLE IF NOT EXISTS usuario_departamentos (
     usuario_id           INTEGER NOT NULL REFERENCES usuarios(id),
     departamento_codigo  TEXT NOT NULL REFERENCES departamentos(codigo),
+    es_principal         INTEGER NOT NULL DEFAULT 0,
     PRIMARY KEY (usuario_id, departamento_codigo)
 );
 
--- Lotes de importación de expedientes desde Excel/CSV (pantalla «Importar expedientes»)
+-- Lotes de importación de expedientes desde Excel/CSV (pantalla «Importar expedientes»).
+-- También registra las importaciones del Control de Expedientes 2026
+-- (formato = 'CONTROL_2026'). Equivalencias con la especificación de la v2:
+--   total_registros = filas_leidas, importados = expedientes_creados,
+--   omitidos = expedientes_omitidos, importado_por = usuario_id,
+--   creado_en = fecha_hora, errores (JSON) = detalle.
 CREATE TABLE IF NOT EXISTS importaciones (
     id                        INTEGER PRIMARY KEY AUTOINCREMENT,
     fecha_hora                TEXT NOT NULL,
@@ -135,7 +143,98 @@ CREATE TABLE IF NOT EXISTS importaciones (
     estado                    TEXT NOT NULL,        -- COMPLETADO | DESHECHO
     detalle                   TEXT,                 -- JSON: valores previos de los expedientes actualizados
     deshecho_en               TEXT,
-    deshecho_por              INTEGER REFERENCES usuarios(id)
+    deshecho_por              INTEGER REFERENCES usuarios(id),
+    anio_filtro               TEXT                  -- JSON con los años considerados, p. ej. [2025, 2026]; NULL = todos
+);
+
+-- ===========================================================================
+-- v2 — Asignación óptima (MILP), seguimiento, reportes, notificaciones, portal
+-- ===========================================================================
+
+-- Asignaciones expediente → trabajador (propuestas por el modelo MILP y confirmadas por el administrador)
+CREATE TABLE IF NOT EXISTS asignaciones (
+    id                INTEGER PRIMARY KEY AUTOINCREMENT,
+    expediente_id     INTEGER NOT NULL REFERENCES expedientes(id),
+    usuario_id        INTEGER NOT NULL REFERENCES usuarios(id),
+    fecha_asignacion  TEXT NOT NULL,
+    fecha_limite      TEXT,
+    estado            TEXT NOT NULL DEFAULT 'PENDIENTE',   -- PENDIENTE | EN_PROGRESO | COMPLETADA | REASIGNADA
+    iua_al_asignar    REAL,
+    eij_score         REAL,
+    lote_id           TEXT,                                -- agrupa las asignaciones de una misma corrida
+    asignado_por      INTEGER REFERENCES usuarios(id),
+    observacion       TEXT,
+    creado_en         TEXT NOT NULL,
+    actualizado_en    TEXT
+);
+
+-- Eficiencia histórica de cada trabajador por tipo de trámite (e_ij del modelo MILP)
+CREATE TABLE IF NOT EXISTS eficiencia_trabajador (
+    usuario_id            INTEGER NOT NULL REFERENCES usuarios(id),
+    procedimiento_codigo  TEXT NOT NULL REFERENCES procedimientos(codigo),
+    total_atendidos       INTEGER NOT NULL DEFAULT 0,
+    finalizados_a_tiempo  INTEGER NOT NULL DEFAULT 0,
+    tiempo_promedio_dias  REAL,
+    tasa_finalizacion     REAL,
+    velocidad_relativa    REAL,
+    experiencia           REAL,
+    score_eij             REAL,
+    actualizado_en        TEXT,
+    PRIMARY KEY (usuario_id, procedimiento_codigo)
+);
+
+-- Reportes semanales de avance (se llenan los jueves)
+CREATE TABLE IF NOT EXISTS reportes_semanales (
+    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+    usuario_id     INTEGER NOT NULL REFERENCES usuarios(id),
+    semana         TEXT NOT NULL,                 -- ISO 8601, p. ej. 2026-W47
+    fecha_llenado  TEXT NOT NULL,
+    datos          TEXT NOT NULL,                 -- JSON con el formulario completo
+    creado_en      TEXT NOT NULL
+);
+
+-- Notificaciones internas (campana de la cabecera)
+CREATE TABLE IF NOT EXISTS notificaciones (
+    id               INTEGER PRIMARY KEY AUTOINCREMENT,
+    usuario_id       INTEGER NOT NULL REFERENCES usuarios(id),
+    tipo             TEXT NOT NULL,               -- ASIGNACION | DERIVACION | REPORTE | RECORDATORIO | SISTEMA
+    titulo           TEXT NOT NULL,
+    mensaje          TEXT,
+    referencia_tipo  TEXT,                        -- expediente | asignacion | reporte
+    referencia_id    INTEGER,
+    leida            INTEGER NOT NULL DEFAULT 0,
+    creado_en        TEXT NOT NULL
+);
+
+-- Administrados (ciudadanos) con acceso al portal de consulta
+CREATE TABLE IF NOT EXISTS administrados (
+    id                   INTEGER PRIMARY KEY AUTOINCREMENT,
+    documento_identidad  TEXT NOT NULL UNIQUE,    -- DNI
+    nombre_completo      TEXT NOT NULL,
+    telefono_whatsapp    TEXT,
+    usuario_portal       TEXT UNIQUE,             -- nombre completo sin espacios
+    clave_portal_hash    TEXT,
+    clave_portal_sal     TEXT,
+    activo               INTEGER NOT NULL DEFAULT 1,
+    creado_en            TEXT NOT NULL,
+    primer_acceso        TEXT
+);
+
+-- Firma de recepción: el destinatario acepta con un clic el expediente derivado
+CREATE TABLE IF NOT EXISTS recepciones (
+    movimiento_id   INTEGER PRIMARY KEY REFERENCES movimientos(id),
+    expediente_id   INTEGER NOT NULL REFERENCES expedientes(id),
+    usuario_id      INTEGER NOT NULL REFERENCES usuarios(id),
+    recibido_en     TEXT NOT NULL                 -- fecha y hora exactas (ISO)
+);
+
+-- Documento TUPA de referencia subido por el administrador
+CREATE TABLE IF NOT EXISTS tupa_documento (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    nombre_archivo  TEXT NOT NULL,
+    contenido       BLOB,                         -- PDF o Excel del TUPA
+    subido_por      INTEGER REFERENCES usuarios(id),
+    creado_en       TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS auditoria (
@@ -156,3 +255,9 @@ CREATE INDEX IF NOT EXISTS idx_exp_numero   ON expedientes(numero);
 CREATE INDEX IF NOT EXISTS idx_exp_solic    ON expedientes(solicitante);
 CREATE INDEX IF NOT EXISTS idx_mov_exp      ON movimientos(expediente_id, orden);
 CREATE INDEX IF NOT EXISTS idx_aud_fecha    ON auditoria(fecha_hora);
+CREATE INDEX IF NOT EXISTS idx_asig_exp     ON asignaciones(expediente_id);
+CREATE INDEX IF NOT EXISTS idx_asig_usr     ON asignaciones(usuario_id);
+CREATE INDEX IF NOT EXISTS idx_asig_estado  ON asignaciones(estado);
+CREATE INDEX IF NOT EXISTS idx_notif_usr    ON notificaciones(usuario_id, leida);
+CREATE INDEX IF NOT EXISTS idx_admin_dni    ON administrados(documento_identidad);
+CREATE INDEX IF NOT EXISTS idx_rep_sem      ON reportes_semanales(usuario_id, semana);

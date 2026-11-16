@@ -11,13 +11,14 @@ export default function Configuracion() {
       <Pestanas activa={pestana} alCambiar={setPestana} opciones={[
         { clave: 'red', etiqueta: 'Red y equipo' }, { clave: 'respaldos', etiqueta: 'Respaldos' },
         { clave: 'feriados', etiqueta: 'Feriados' }, { clave: 'procedimientos', etiqueta: 'Procedimientos y plazos TUPA' },
-        { clave: 'parametros', etiqueta: 'Parámetros' },
+        { clave: 'parametros', etiqueta: 'Parámetros' }, { clave: 'plantillas', etiqueta: 'Plantillas de observación' },
       ]} />
       {pestana === 'red' && <Red />}
       {pestana === 'respaldos' && <Respaldos />}
       {pestana === 'feriados' && <Feriados />}
       {pestana === 'procedimientos' && <Procedimientos />}
       {pestana === 'parametros' && <Parametros />}
+      {pestana === 'plantillas' && <Plantillas />}
     </>
   )
 }
@@ -244,18 +245,31 @@ function FormProcedimiento({ p, cat, alCerrar, alListo }) {
 function Parametros() {
   const { refrescar } = useApp()
   const { datos: cat, recargar } = useDatos('catalogos', {})
-  const [dias, setDias] = useState('')
+  const [v, setV] = useState(null)
   const { ocupado, error, ejecutar } = useAccion()
-  useEffect(() => { if (cat) setDias(String(cat.parametros.dias_alerta_por_vencer)) }, [cat])
-  if (!cat) return <Cargando />
+  useEffect(() => {
+    if (cat) setV({ dias_alerta_por_vencer: String(cat.parametros.dias_alerta_por_vencer), dias_abandono: String(cat.parametros.dias_abandono ?? 30),
+                    fecha_implementacion: cat.parametros.fecha_implementacion || cat.importacion?.fecha_corte || '', portal_url: cat.parametros.portal_url || 'http://localhost:7302' })
+  }, [cat])
+  if (!cat || !v) return <Cargando />
   const p = cat.parametros
+  const set = (k) => (e) => setV({ ...v, [k]: e.target.value })
+  const guardar = async () => {
+    const r = await ejecutar(() => llamar('guardar_parametros', { dias_alerta_por_vencer: Number(v.dias_alerta_por_vencer), dias_abandono: Number(v.dias_abandono),
+      fecha_implementacion: v.fecha_implementacion, portal_url: v.portal_url }), 'Parámetros guardados')
+    if (r) { recargar(); refrescar() }
+  }
   return (
     <div className="dos-columnas">
-      <Panel titulo="Alertas">
-        <Campo etiqueta="Avisar «por vencer» cuando falten (días hábiles)"><input type="number" min="1" max="30" value={dias} onChange={e => setDias(e.target.value)} style={{ maxWidth: 120 }} /></Campo>
+      <Panel titulo="Alertas y operación">
+        <div className="formulario">
+          <Campo etiqueta="Avisar «por vencer» cuando falten (días hábiles)"><input type="number" min="1" max="30" value={v.dias_alerta_por_vencer} onChange={set('dias_alerta_por_vencer')} /></Campo>
+          <Campo etiqueta="Considerar abandonado tras (días hábiles sin movimiento)"><input type="number" min="5" max="365" value={v.dias_abandono} onChange={set('dias_abandono')} /></Campo>
+          <Campo etiqueta="Fecha de implementación de URBANITO" ayuda="Divide el «antes» y el «después» en el tablero"><input type="date" value={v.fecha_implementacion} onChange={set('fecha_implementacion')} /></Campo>
+          <Campo etiqueta="Dirección del portal ciudadano" ayuda="Se incluye en el mensaje de WhatsApp con las credenciales"><input value={v.portal_url} onChange={set('portal_url')} /></Campo>
+        </div>
         {error && <div style={{ marginTop: 10 }}><Aviso tipo="error">{error}</Aviso></div>}
-        <button className="boton primario" style={{ marginTop: 12 }} disabled={ocupado}
-                onClick={async () => { const r = await ejecutar(() => llamar('guardar_parametros', { dias_alerta_por_vencer: Number(dias) }), 'Parámetro guardado'); if (r) { recargar(); refrescar() } }}>Guardar</button>
+        <button className="boton primario" style={{ marginTop: 12 }} disabled={ocupado} onClick={guardar}>Guardar</button>
       </Panel>
       <Panel titulo="Parámetros metodológicos (fijos)" descripcion="Definen los modelos; cambiarlos alteraría la comparabilidad de los resultados">
         <table className="tabla"><tbody>
@@ -266,8 +280,39 @@ function Parametros() {
           <tr><td>Cortes de nivel (IUA)</td><td className="num">{p.cortes.map(c => `${c[0]} ≥ ${c[1]}`).join(' · ')}</td></tr>
           <tr><td>Escala del tipo de procedimiento</td><td className="num">1.0 / 0.6 / 0.3</td></tr>
           <tr><td>Cierre de importados por inactividad</td><td className="num">{p.dias_inactividad_cierre} d.h.</td></tr>
+          <tr><td>Pesos de eficiencia eᵢⱼ (asignación MILP)</td><td className="num">0.40 / 0.35 / 0.25</td></tr>
         </tbody></table>
       </Panel>
     </div>
+  )
+}
+
+// Botones rápidos con textos frecuentes para «Observar»
+function Plantillas() {
+  const { datos, recargar } = useDatos('plantillas_observacion', {})
+  const [lista, setLista] = useState(null)
+  const { ocupado, error, ejecutar } = useAccion()
+  useEffect(() => { if (datos) setLista(datos.map(p => ({ ...p }))) }, [datos])
+  if (!lista) return <Cargando />
+  const cambiar = (i, k) => (e) => setLista(lista.map((p, j) => (j === i ? { ...p, [k]: e.target.value } : p)))
+  const guardar = async () => {
+    const r = await ejecutar(() => llamar('guardar_plantillas_observacion', { plantillas: lista }), 'Plantillas guardadas')
+    if (r) recargar()
+  }
+  return (
+    <Panel titulo="Plantillas de observación" descripcion="Aparecen como botones al observar un expediente. El texto se agrega a la observación y se puede completar.">
+      <table className="tabla">
+        <thead><tr><th style={{ width: 200 }}>Botón</th><th>Texto que se agrega</th><th /></tr></thead>
+        <tbody>{lista.map((p, i) => (
+          <tr key={i}><td><input className="control" value={p.titulo} onChange={cambiar(i, 'titulo')} maxLength={40} /></td>
+            <td><textarea className="control" rows={2} value={p.texto} onChange={cambiar(i, 'texto')} maxLength={500} /></td>
+            <td><button className="boton pequeno" onClick={() => setLista(lista.filter((_, j) => j !== i))}>Quitar</button></td></tr>))}</tbody>
+      </table>
+      <div className="grupo-botones" style={{ marginTop: 12 }}>
+        <button className="boton" disabled={lista.length >= 30} onClick={() => setLista([...lista, { titulo: '', texto: '' }])}>+ Agregar plantilla</button>
+        <button className="boton primario" disabled={ocupado} onClick={guardar}>Guardar plantillas</button>
+      </div>
+      {error && <div style={{ marginTop: 10 }}><Aviso tipo="error">{error}</Aviso></div>}
+    </Panel>
   )
 }

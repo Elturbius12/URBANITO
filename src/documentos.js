@@ -68,7 +68,11 @@ export function fichaHtml(f, institucion, usuario) {
     <table><thead><tr><th>#</th><th>Fecha</th><th>Movimiento</th><th>Destino</th><th>Documento</th><th class="num">Días en el paso</th><th>Registró</th></tr></thead><tbody>
     ${movs.map(m => `<tr><td>${m.orden}</td><td>${h(m.fecha_t)}${m.fecha_valida ? '' : ' (fecha inválida)'}</td><td>${h(m.tipo || '')}</td>
       <td>${h(m.destino_nombre || m.destino_texto || '—')}</td><td>${h(m.documento || '')}</td>
-      <td class="num">${m.dias_en_paso ?? ''}</td><td>${h(m.usuario_nombre || (m.importado ? 'Sistema anterior' : ''))}</td></tr>`).join('')}
-    </tbody></table>`
+      <td class="num">${m.dias_en_paso ?? ''}</td><td>${h(m.usuario_nombre || (m.importado ? 'Sistema anterior' : ''))}${m.recibido_en ? `<br><i>Recibió: ${h(m.recibido_por || '')} ${h(fechaHora(m.recibido_en))}</i>` : ''}</td></tr>`).join('')}
+    </tbody></table>
+    ${f.tiempo_por_destino && f.tiempo_por_destino.length ? `<h2>Tiempo en cada escritorio</h2><table><thead><tr><th>Destino</th><th class="num">Días hábiles</th></tr></thead><tbody>
+      ${f.tiempo_por_destino.map(t => `<tr><td>${h(t.destino)}</td><td class="num">${t.dias}</td></tr>`).join('')}</tbody></table>` : ''}
+    ${f.asignaciones && f.asignaciones.length ? `<h2>Asignaciones</h2><table><thead><tr><th>Asignado</th><th>Trabajador</th><th>Fecha límite</th><th>Estado</th></tr></thead><tbody>
+      ${f.asignaciones.map(a => `<tr><td>${h(fecha(a.fecha_asignacion))}</td><td>${h(a.usuario || '')}</td><td>${h(fecha(a.fecha_limite))}</td><td>${h(a.estado)}</td></tr>`).join('')}</tbody></table>` : ''}`
   return documentoHtml({ titulo: `Expediente ${e.numero}`, subtitulo: e.procedimiento, institucion, cuerpo, usuario })
 }

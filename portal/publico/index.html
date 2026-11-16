@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Consulta de trámites</title>
+  <link rel="stylesheet" href="estilos.css">
+</head>
+<body>
+  <header class="barra">
+    <div class="marca">
+      <b>Municipalidad Provincial de San Román</b>
+      <span>Gerencia de Desarrollo Urbano — Consulta de trámites</span>
+    </div>
+    <button id="salir" class="boton claro" hidden>Salir</button>
+  </header>
+
+  <main class="contenido">
+    <!-- ingreso -->
+    <section id="v-ingreso" class="tarjeta angosta">
+      <h1>Consulte el estado de sus trámites</h1>
+      <p class="suave">Use el usuario y la contraseña que le entregó mesa de partes al registrar su trámite.</p>
+      <form id="f-ingreso" autocomplete="on">
+        <label>Usuario <input name="usuario" required autocomplete="username" placeholder="NOMBRESAPELLIDOS"></label>
+        <label>Contraseña <input name="clave" type="password" required autocomplete="current-password"></label>
+        <button class="boton" type="submit">Ingresar</button>
+      </form>
+      <p id="e-ingreso" class="error" role="alert"></p>
+      <p class="suave pequeno">¿Olvidó su contraseña? Acérquese a mesa de partes con su DNI.</p>
+    </section>
+
+    <!-- cambio obligatorio de contraseña -->
+    <section id="v-clave" class="tarjeta angosta" hidden>
+      <h1>Cree su contraseña</h1>
+      <p class="suave">Por seguridad debe cambiar la contraseña inicial antes de continuar. Use al menos 8 caracteres, con letras y números, y que no incluya su DNI.</p>
+      <form id="f-clave">
+        <label>Contraseña actual <input name="actual" type="password" required autocomplete="current-password"></label>
+        <label>Nueva contraseña <input name="nueva" type="password" required minlength="8" autocomplete="new-password"></label>
+        <label>Repita la nueva contraseña <input name="repetir" type="password" required minlength="8" autocomplete="new-password"></label>
+        <button class="boton" type="submit">Guardar y continuar</button>
+      </form>
+      <p id="e-clave" class="error" role="alert"></p>
+    </section>
+
+    <!-- trámites -->
+    <section id="v-tramites" hidden>
+      <h1 id="saludo">Sus trámites</h1>
+      <p class="suave">Plazos en días hábiles (sin sábados, domingos ni feriados). Mientras un trámite está observado, el plazo se suspende.</p>
+      <div id="lista" class="lista"></div>
+    </section>
+  </main>
+
+  <footer class="pie">URBANITO · Municipalidad Provincial de San Román · Juliaca</footer>
+  <script src="app.js"></script>
+</body>
+</html>

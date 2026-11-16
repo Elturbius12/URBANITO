@@ -2,13 +2,30 @@
 import { useState } from 'react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, LineChart, Line, Cell } from 'recharts'
 import { useDatos } from '../api'
-import { useApp, Panel, Indicador, Cargando, ErrorCarga, Nivel, Aviso, BarraProporcion } from './Comunes'
+import { useApp, Panel, Indicador, Cargando, ErrorCarga, Nivel, Aviso, BarraProporcion, Pestanas } from './Comunes'
+import { Finalizados, AntesDespues } from './TableroFinalizados'
 import { numero, porcentaje, mes, fecha, fechaHora, restantes } from '../formato'
 import { exportarPdf, documentoHtml, tablaHtml } from '../exportar'
 
 const COLOR = { 'CRÍTICO': '#dc2626', ALTO: '#ea580c', MEDIO: '#ca8a04', BAJO: '#16a34a' }
 
 export default function Tablero() {
+  const [pestana, setPestana] = useState('general')
+  return (
+    <>
+      <Pestanas activa={pestana} alCambiar={setPestana} opciones={[
+        { clave: 'general', etiqueta: 'General' },
+        { clave: 'finalizados', etiqueta: 'Finalizados' },
+        { clave: 'antes_despues', etiqueta: 'Antes vs. después de URBANITO' },
+      ]} />
+      {pestana === 'general' && <TableroGeneral />}
+      {pestana === 'finalizados' && <Finalizados />}
+      {pestana === 'antes_despues' && <AntesDespues />}
+    </>
+  )
+}
+
+function TableroGeneral() {
   const { usuario, version, abrirFicha, notificar, estado } = useApp()
   const [dep, setDep] = useState('')
   const { datos: cat } = useDatos('catalogos', {})

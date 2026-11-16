@@ -1,7 +1,7 @@
 // Bandeja priorizada: el Modelo 1 (IUA) aplicado al trabajo diario.
 import { useEffect, useMemo, useState } from 'react'
-import { useDatos } from '../api'
-import { useApp, Panel, Nivel, Cargando, ErrorCarga, Vacio, Aviso } from './Comunes'
+import { useDatos, llamar } from '../api'
+import { useApp, Panel, Nivel, Cargando, ErrorCarga, Vacio, Aviso, Semaforo, colorPlazo, useAccion } from './Comunes'
 import { numero, fecha, restantes, fechaHora } from '../formato'
 import { exportarExcel, COLUMNAS_PRIORIZADOS } from '../exportar'
 
@@ -28,6 +28,8 @@ export default function Bandeja({ inicial = {} }) {
   if (!datos) return <Cargando />
   const set = (k) => (e) => setF({ ...f, [k]: e.target.type === 'checkbox' ? e.target.checked : e.target.value })
   const visibles = datos.filas.slice((pagina - 1) * TAM, pagina * TAM)
+  const conteoPlazo = { verde: 0, amarillo: 0, rojo: 0, gris: 0 }
+  for (const x of datos.filas) conteoPlazo[colorPlazo(x).clase]++
 
   return (
     <>
@@ -72,13 +74,18 @@ export default function Bandeja({ inicial = {} }) {
         </div>
       </Panel>
 
+      <PorRecibir />
+
       {usuario.rol === 'TECNICO' && !datos.filas.length && !f.texto && (
         <Aviso tipo="informativo">No tiene expedientes asignados. Su jefe de departamento le asigna expedientes desde su bandeja
           (botón «Derivar / asignar» en la ficha del expediente).</Aviso>
       )}
 
       <Panel sinRelleno titulo={`${numero(datos.total)} expediente${datos.total === 1 ? '' : 's'}`}
-             descripcion={`Orden: mayor IUA primero. Calculado ${fechaHora(datos.calculado_en)}. Clic en una fila para ver el detalle y actuar.`}>
+             descripcion={`Orden: mayor IUA primero. Calculado ${fechaHora(datos.calculado_en)}. Clic en una fila para ver el detalle y actuar.`}
+             acciones={<div className="leyenda-semaforo">
+               <Semaforo color="verde">{conteoPlazo.verde} en plazo</Semaforo><Semaforo color="amarillo">{conteoPlazo.amarillo} por vencer</Semaforo>
+               <Semaforo color="rojo">{conteoPlazo.rojo} vencidos</Semaforo><Semaforo color="gris">{conteoPlazo.gris} sin plazo</Semaforo></div>}>
         {!datos.filas.length ? <Vacio texto="No hay expedientes con estos filtros." /> : (
           <div className="tabla-contenedor" style={{ maxHeight: 'calc(100vh - 360px)' }}>
             <table className="tabla" data-prueba="bandeja">
@@ -109,7 +116,7 @@ export default function Bandeja({ inicial = {} }) {
                     </td>
                     <td className="num">{x.dias === null ? '—' : numero(x.dias)}</td>
                     <td>
-                      <div style={{ color: x.vencido ? 'var(--critico)' : undefined, fontWeight: x.vencido ? 600 : undefined }}>{restantes(x.dias_restantes)}</div>
+                      <Semaforo color={colorPlazo(x).clase} titulo={colorPlazo(x).texto}>{restantes(x.dias_restantes)}</Semaforo>
                       <div className="suave">{x.plazo_tupa !== null ? `${x.plazo_tupa} d.h. · límite ${fecha(x.fecha_limite)}` : (x.origen_plazo === 'P80 OBSERVADO' ? `Ref. MTA: ${numero(x.plazo_referencia)} d.h.` : '')}</div>
                     </td>
                     <td className="num destacado">{x.iua.toFixed(3)}</td>
@@ -129,5 +136,42 @@ export default function Bandeja({ inicial = {} }) {
         )}
       </Panel>
     </>
+  )
+}
+
+// Expedientes derivados a mí (o a mi departamento) que aún no firmé como recibidos
+function PorRecibir() {
+  const { version, abrirFicha, notificar, refrescar } = useApp()
+  const { datos, recargar } = useDatos('pendientes_recepcion', {}, [version])
+  const [sel, setSel] = useState(new Set())
+  const { ocupado, ejecutar } = useAccion()
+  if (!datos || !datos.length) return null
+  const todos = datos.every(p => sel.has(p.movimiento_id))
+  const recibir = async (ids) => {
+    const r = await ejecutar(() => llamar('recibir', { movimiento_ids: ids }))
+    if (r) { notificar(`${r.recibidos} expediente(s) recibido(s): ${fechaHora(r.recibido_en)}`, 'exito'); setSel(new Set()); recargar(); refrescar() }
+    else notificar('No se pudo registrar la recepción. Actualice la pantalla.', 'error')
+  }
+  return (
+    <Panel titulo={`Por recibir (${datos.length})`} sinRelleno
+           descripcion="Le derivaron estos expedientes. Firme la recepción para dejar constancia de la fecha y hora en que los recibió."
+           acciones={<div className="grupo-botones">
+             <button className="boton pequeno" disabled={!sel.size || ocupado} onClick={() => recibir([...sel])}>✍ Recibir seleccionados ({sel.size})</button>
+             <button className="boton exito pequeno" disabled={ocupado} onClick={() => recibir(datos.map(p => p.movimiento_id))} data-accion="recibir-todos">✍ Recibir todos</button></div>}>
+      <div className="tabla-contenedor" style={{ maxHeight: 240 }}>
+        <table className="tabla">
+          <thead><tr><th style={{ width: 30 }}><input type="checkbox" checked={todos} aria-label="Seleccionar todos"
+            onChange={() => setSel(todos ? new Set() : new Set(datos.map(p => p.movimiento_id)))} /></th>
+            <th>Expediente</th><th>Trámite</th><th>Derivado por</th><th>Fecha</th><th>Indicaciones</th><th>Nivel</th></tr></thead>
+          <tbody>{datos.map(p => (
+            <tr key={p.movimiento_id} className="clicable" onClick={() => abrirFicha(p.expediente_id)}>
+              <td onClick={e => e.stopPropagation()}><input type="checkbox" checked={sel.has(p.movimiento_id)} onChange={() => {
+                const s = new Set(sel); if (s.has(p.movimiento_id)) s.delete(p.movimiento_id); else s.add(p.movimiento_id); setSel(s) }} /></td>
+              <td className="mono destacado">{p.numero}</td><td>{p.procedimiento}</td><td>{p.derivado_por || '—'}</td>
+              <td className="suave">{fechaHora(p.registrado_en)}</td><td className="suave" style={{ maxWidth: 260 }}>{p.observacion || ''}</td>
+              <td><Nivel nivel={p.nivel} /></td></tr>))}</tbody>
+        </table>
+      </div>
+    </Panel>
   )
 }

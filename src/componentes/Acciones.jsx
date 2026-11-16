@@ -13,6 +13,7 @@ const TITULOS = {
 export default function AccionModal({ tipo, ficha, alCerrar, alListo }) {
   const { usuario } = useApp()
   const { datos: cat } = useDatos('catalogos', {})
+  const { datos: plantillas } = useDatos(tipo === 'observar' ? 'plantillas_observacion' : 'ping', {})
   const e = ficha.expediente
   const { ocupado, error, ejecutar } = useAccion()
   const [f, setF] = useState(() => ({
@@ -103,6 +104,15 @@ export default function AccionModal({ tipo, ficha, alCerrar, alListo }) {
       <>
         <Aviso tipo="informativo">Mientras el expediente esté observado, el plazo del TUPA se suspende (no corre) hasta que el administrado subsane.
           La subsanación la puede recibir mesa de partes.</Aviso>
+        {Array.isArray(plantillas) && plantillas.length > 0 && (
+          <div style={{ marginBottom: 10 }}>
+            <div className="etiqueta-campo" style={{ marginBottom: 4 }}>Textos frecuentes (clic para agregar)</div>
+            <div className="grupo-botones">{plantillas.map(p => (
+              <button key={p.titulo} type="button" className="boton pequeno" title={p.texto} data-accion="plantilla-observacion"
+                      onClick={() => setF(x => ({ ...x, observacion: x.observacion ? `${x.observacion.trim()} ${p.texto}` : p.texto }))}>+ {p.titulo}</button>))}
+            </div>
+          </div>
+        )}
         <div className="formulario">
           <Campo etiqueta="Qué debe subsanar el administrado" requerido completo>
             <textarea value={f.observacion} onChange={set('observacion')} placeholder="Ej.: Presentar copia literal de dominio con antigüedad no mayor a 30 días" />

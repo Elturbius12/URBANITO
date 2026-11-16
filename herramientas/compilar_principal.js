@@ -20,4 +20,6 @@ esbuild.buildSync({
 fs.copyFileSync(path.join(RAIZ, 'electron', 'preload.js'), path.join(SALIDA, 'preload.js'))
 fs.copyFileSync(path.join(RAIZ, 'electron', 'esquema.sql'), path.join(SALIDA, 'esquema.sql'))
 fs.copyFileSync(require.resolve('sql.js/dist/sql-wasm.wasm'), path.join(SALIDA, 'sql-wasm.wasm'))
+// GLPK (Modelo 3, MILP): glpk.js busca glpk.wasm junto al código compilado (__dirname)
+fs.copyFileSync(path.join(path.dirname(require.resolve('glpk.js')), 'glpk.wasm'), path.join(SALIDA, 'glpk.wasm'))
 console.log('Proceso principal compilado en', SALIDA, `(${(fs.statSync(path.join(SALIDA, 'main.js')).size / 1e6).toFixed(1)} MB)`)

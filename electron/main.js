@@ -260,25 +260,32 @@ function registrarIpc() {
     return despachar(sistema, 'restaurar_respaldo', { ruta }, token, { local: true })
   })
 
-  ipcMain.handle('urbanito:elegir-archivo-importacion', async () => {
+  // tipo: undefined (plantilla/consolidado: .xlsx o hasta dos .csv) | 'control2026' (un .xlsx) | 'tupa' (un .pdf o .xlsx)
+  ipcMain.handle('urbanito:elegir-archivo-importacion', async (_e, opciones = {}) => {
+    const tipo = opciones && opciones.tipo
+    const conf = tipo === 'tupa'
+      ? { titulo: 'Elegir el documento TUPA', filtros: [{ name: 'PDF o Excel', extensions: ['pdf', 'xlsx'] }], rx: /\.(pdf|xlsx)$/i, varios: false, ext: '.pdf o .xlsx' }
+      : tipo === 'control2026'
+        ? { titulo: 'Elegir CONTROL_EXPEDIENTES_2026.xlsx', filtros: [{ name: 'Libro de Excel', extensions: ['xlsx'] }], rx: /\.xlsx$/i, varios: false, ext: '.xlsx' }
+        : { titulo: 'Elegir archivo de expedientes', filtros: [{ name: 'Excel o CSV', extensions: ['xlsx', 'csv'] }], rx: /\.(xlsx|csv)$/i, varios: true, ext: '.xlsx o .csv' }
     const r = await dialog.showOpenDialog(ventana, {
-      title: 'Elegir archivo de expedientes', properties: ['openFile', 'multiSelections'],
-      filters: [{ name: 'Excel o CSV', extensions: ['xlsx', 'csv'] }],
+      title: conf.titulo, properties: conf.varios ? ['openFile', 'multiSelections'] : ['openFile'], filters: conf.filtros,
     })
     if (r.canceled || !r.filePaths.length) return { ok: false, cancelado: true }
     if (r.filePaths.length > 2) return { ok: false, error: 'Seleccione un solo Excel, o hasta dos CSV (expedientes y movimientos).' }
-    archivosImportacion.clear()
+    // los archivos de distinto tipo (p. ej. Control 2026 y TUPA) conviven hasta usarse
+    for (const [k, v] of archivosImportacion) if (v.tipo === (tipo || 'general')) archivosImportacion.delete(k)
     const lista = []
     for (const ruta of r.filePaths) {
       const nombre = path.basename(ruta)
-      if (!/\.(xlsx|csv)$/i.test(nombre)) return { ok: false, error: `"${nombre}": solo se aceptan archivos .xlsx o .csv.` }
+      if (!conf.rx.test(nombre)) return { ok: false, error: `"${nombre}": solo se aceptan archivos ${conf.ext}.` }
       const st = fs.statSync(ruta)
       if (!st.size) return { ok: false, error: `"${nombre}" está vacío.` }
       if (st.size > LIMITE_ARCHIVO) {
         return { ok: false, error: `"${nombre}" pesa ${(st.size / 1048576).toFixed(1)} MB; el máximo es 50 MB. Divídalo en partes más pequeñas.` }
       }
       const id = crypto.randomBytes(8).toString('hex')
-      archivosImportacion.set(id, { nombre, contenido: fs.readFileSync(ruta) })
+      archivosImportacion.set(id, { nombre, contenido: fs.readFileSync(ruta), tipo: tipo || 'general' })
       lista.push({ id, nombre, tamano: st.size })
     }
     return { ok: true, archivos: lista }
@@ -287,10 +294,10 @@ function registrarIpc() {
   // Guarda un archivo generado por el núcleo (plantilla de importación): { nombre, base64 }
   ipcMain.handle('urbanito:guardar-archivo', async (_e, { nombre, base64, titulo }) => {
     const ext = ((String(nombre).match(/\.([a-z0-9]+)$/i) || [])[1] || '').toLowerCase()
-    if (!['xlsx', 'csv'].includes(ext)) return { ok: false, error: 'Tipo de archivo no permitido.' }
+    if (!['xlsx', 'csv', 'pdf'].includes(ext)) return { ok: false, error: 'Tipo de archivo no permitido.' }
     const r = await dialog.showSaveDialog(ventana, {
       title: titulo || 'Guardar archivo', defaultPath: String(nombre).replace(/[\\/:*?"<>|]/g, ' '),
-      filters: [{ name: ext === 'xlsx' ? 'Libro de Excel' : 'CSV', extensions: [ext] }],
+      filters: [{ name: { xlsx: 'Libro de Excel', csv: 'CSV', pdf: 'Documento PDF' }[ext], extensions: [ext] }],
     })
     if (r.canceled || !r.filePath) return { ok: false, cancelado: true }
     try {
@@ -299,6 +306,14 @@ function registrarIpc() {
     } catch (err) {
       return { ok: false, error: `No se pudo guardar el archivo: ${err.message}` }
     }
+  })
+
+  // Abre en el navegador SOLO enlaces de WhatsApp (wa.me) para enviar credenciales del portal
+  ipcMain.handle('urbanito:abrir-enlace', async (_e, url) => {
+    const u = String(url || '')
+    if (!/^https:\/\/wa\.me\/\d{8,15}\?text=[^\s]*$/.test(u)) return { ok: false, error: 'Enlace no permitido.' }
+    await shell.openExternal(u)
+    return { ok: true }
   })
 
   ipcMain.handle('urbanito:abrir-carpeta-datos', async (_e, { token }) => {

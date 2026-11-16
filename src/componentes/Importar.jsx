@@ -4,7 +4,8 @@
 // PC servidor) vuelve a validarlo todo al confirmar.
 import { useEffect, useState } from 'react'
 import { llamar, useDatos } from '../api'
-import { useApp, Panel, Cargando, ErrorCarga, Aviso, Modal, Campo, Insignia, Indicador, Paginacion, Vacio, useAccion } from './Comunes'
+import { useApp, Panel, Cargando, ErrorCarga, Aviso, Modal, Campo, Insignia, Indicador, Paginacion, Vacio, Pestanas, useAccion } from './Comunes'
+import Importar2026 from './Importar2026'
 import { numero, fecha, fechaHora } from '../formato'
 import { exportarExcel } from '../exportar'
 
@@ -25,7 +26,24 @@ export async function descargarPlantilla(notificar, departamento) {
   }
 }
 
+// Pestañas: plantilla / consolidado (todos los que importan) y Control 2026 (administrador)
 export default function Importar() {
+  const { usuario } = useApp()
+  const admin = usuario.rol === 'ADMINISTRADOR'
+  const [pestana, setPestana] = useState('plantilla')
+  if (!admin) return <ImportarPlantilla />
+  return (
+    <>
+      <Pestanas activa={pestana} alCambiar={setPestana} opciones={[
+        { clave: 'plantilla', etiqueta: 'Plantilla o consolidado' },
+        { clave: 'control2026', etiqueta: 'Control de Expedientes 2026' },
+      ]} />
+      {pestana === 'plantilla' ? <ImportarPlantilla /> : <Importar2026 />}
+    </>
+  )
+}
+
+function ImportarPlantilla() {
   const { usuario, notificar, refrescar, ir, depActivo } = useApp()
   const { datos: deps, error: errDeps, recargar: recDeps } = useDatos('importar_departamentos', {})
   const [departamento, setDepartamento] = useState(depActivo || '')

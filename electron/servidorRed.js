@@ -32,6 +32,14 @@ function crearServidor(sistema, registrar = () => {}) {
     if (req.method === 'GET' && req.url === '/urbanito/ping') {
       return responder(200, { ok: true, servicio: 'URBANITO', version: 1 })
     }
+    // Polling de notificaciones: GET /api/notificaciones-nuevas?desde=ISO (con «Authorization: Bearer <token>»)
+    if (req.method === 'GET' && req.url.startsWith('/api/notificaciones-nuevas')) {
+      const auth = req.headers.authorization || ''
+      const token = auth.startsWith('Bearer ') ? auth.slice(7) : null
+      const desde = new URL(req.url, 'http://local').searchParams.get('desde') || undefined
+      return despachar(sistema, 'notificaciones_nuevas', { desde }, token, { local: false })
+        .then(r => { delete r.detalle; responder(r.ok ? 200 : (r.codigo === 'SESION' ? 401 : 400), r) })
+    }
     if (req.method !== 'POST' || (req.url !== RUTA_API && req.url !== RUTA_IMPORTAR)) return responder(404, { ok: false, error: 'No encontrado' })
     const limite = req.url === RUTA_IMPORTAR ? LIMITE_ARCHIVO : LIMITE_CUERPO
 

@@ -15,8 +15,9 @@ contextBridge.exposeInMainWorld('urbanito', {
   restaurarRespaldo: (opciones) => ipcRenderer.invoke('urbanito:restaurar-respaldo', opciones),
   abrirCarpetaDatos: (opciones) => ipcRenderer.invoke('urbanito:abrir-carpeta-datos', opciones),
   // importación: el archivo lo lee el proceso principal de ESTA PC (nunca el renderer)
-  elegirArchivoImportacion: () => ipcRenderer.invoke('urbanito:elegir-archivo-importacion'),
+  elegirArchivoImportacion: (opciones) => ipcRenderer.invoke('urbanito:elegir-archivo-importacion', opciones || {}),
   guardarArchivo: (opciones) => ipcRenderer.invoke('urbanito:guardar-archivo', opciones),
+  abrirEnlace: (url) => ipcRenderer.invoke('urbanito:abrir-enlace', url),
   alProgreso: (fn) => {
     const oyente = (_e, p) => fn(p)
     ipcRenderer.on('urbanito:progreso', oyente)

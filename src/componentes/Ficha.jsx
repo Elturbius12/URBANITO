@@ -1,8 +1,9 @@
 // Ficha del expediente: datos, prioridad explicada (IUA), tiempos reales (MTA),
 // recorrido y acciones según el rol.
 import { useState } from 'react'
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts'
 import { useDatos, llamar } from '../api'
-import { useApp, Modal, Nivel, Insignia, Cargando, ErrorCarga, Aviso, Pestanas } from './Comunes'
+import { useApp, Modal, Nivel, Insignia, Cargando, ErrorCarga, Aviso, Pestanas, useAccion } from './Comunes'
 import { numero, fecha, porcentaje, restantes, fechaHora } from '../formato'
 import { exportarPdf, imprimir } from '../exportar'
 import { constanciaHtml, fichaHtml } from '../documentos'
@@ -18,6 +19,12 @@ export default function Ficha({ id, alCerrar }) {
   const [pestana, setPestana] = useState('resumen')
   const [accion, setAccion] = useState(null)
   const { datos: f, error, recargar } = useDatos('ficha', { id }, [version])
+  const { ocupado: recibiendo, ejecutar } = useAccion()
+  const recibir = async () => {
+    const r = await ejecutar(() => llamar('recibir', { movimiento_ids: [f.movimiento_por_recibir] }))
+    if (r) { notificar(`Recepción firmada: ${fechaHora(r.recibido_en)}`, 'exito'); refrescar() }
+    else notificar('No se pudo registrar la recepción.', 'error')
+  }
 
   const titulo = f ? (
     <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
@@ -41,6 +48,9 @@ export default function Ficha({ id, alCerrar }) {
           }}>Constancia de recepción</button>
         )}
       </div>
+      {f.puede_recibir && (
+        <button className="boton exito" data-accion="recibir" disabled={recibiendo} onClick={recibir}>✍ Firmar recepción</button>
+      )}
       {f.acciones.map(a => (
         <button key={a} data-accion={a}
                 className={`boton ${a === 'finalizar' ? 'exito' : a === 'archivar' ? '' : a === 'derivar' ? 'primario' : ''}`}
@@ -60,7 +70,7 @@ export default function Ficha({ id, alCerrar }) {
               { clave: 'resumen', etiqueta: 'Resumen' },
               { clave: 'iua', etiqueta: 'Prioridad (IUA)' },
               { clave: 'mta', etiqueta: 'Tiempos reales (MTA)' },
-              { clave: 'recorrido', etiqueta: `Recorrido (${f.movimientos.length})` },
+              { clave: 'recorrido', etiqueta: `Historial (${f.movimientos.length})` },
             ]} />
             {pestana === 'resumen' && <Resumen f={f} irA={setPestana} />}
             {pestana === 'iua' && <ExplicacionIua f={f} />}
@@ -87,6 +97,12 @@ function Resumen({ f, irA }) {
   const i = f.iua
   return (
     <>
+      {f.puede_recibir && <Aviso tipo="informativo">Este expediente le fue derivado y aún no confirmó la recepción.
+        Use «Firmar recepción» para dejar constancia de la fecha y hora en que lo recibió.</Aviso>}
+      {f.asignaciones && f.asignaciones.some(a => ['PENDIENTE', 'EN_PROGRESO'].includes(a.estado)) && (
+        <Aviso tipo="informativo">Asignado por el modelo de asignación a <b>{f.asignaciones.find(a => ['PENDIENTE', 'EN_PROGRESO'].includes(a.estado)).usuario}</b>
+          {' '}· fecha límite {fecha(f.asignaciones.find(a => ['PENDIENTE', 'EN_PROGRESO'].includes(a.estado)).fecha_limite)}.</Aviso>
+      )}
       {e.fecha_invalida && <Aviso>La fecha de ingreso registrada en el sistema anterior es posterior a la fecha de corte (error de digitación).
         Mientras no se corrija, el IUA omite los factores que dependen de esa fecha.</Aviso>}
       {!f.en_alcance && f.acciones.length === 0 && ['EN_TRAMITE', 'OBSERVADO'].includes(e.estado) && (
@@ -286,29 +302,62 @@ function ComparacionMta({ f }) {
 
 function Recorrido({ f }) {
   const e = f.expediente
+  const totalDias = (f.tiempo_por_destino || []).reduce((t, x) => t + x.dias, 0)
   return (
-    <div className="linea-tiempo">
-      {f.movimientos.map(m => {
-        const clase = m.paso_actual ? 'actual' : m.tipo === 'OBSERVACION' ? 'observacion'
-          : ['FINALIZACION', 'ARCHIVO'].includes(m.tipo) ? 'cierre' : ''
-        return (
-          <div key={m.id} className={`paso ${clase}${m.fecha_valida ? '' : ' invalido'}`}>
-            <div className="titulo">{fecha(m.fecha)} · {m.tipo || 'Movimiento'} → {m.destino_nombre || m.destino_texto || 'Sin destino registrado'}</div>
-            <div className="detalle">
-              {m.documento && <>Doc.: {m.documento} · </>}
-              {m.folios && <>Folios: {m.folios} · </>}
-              {m.dias_en_paso !== undefined && m.dias_en_paso !== null && <>{m.paso_actual ? `Lleva ${m.dias_en_paso} d.h. aquí` : `Permaneció ${m.dias_en_paso} d.h.`} · </>}
-              {m.usuario_nombre ? `Registró: ${m.usuario_nombre} (${fechaHora(m.registrado_en)})` : m.importado ? 'Registro del sistema anterior' : ''}
-              {!m.fecha_valida && <> · <b>Fecha posterior al corte de importación: error de registro en el origen</b></>}
-            </div>
-            {m.observacion && <div className="detalle" style={{ color: 'var(--texto)', marginTop: 2 }}>{m.observacion}</div>}
+    <>
+      {f.tiempo_por_destino && f.tiempo_por_destino.length > 0 && (
+        <div className="panel" style={{ marginBottom: 14 }}>
+          <div className="panel-cabecera"><h3>Tiempo en cada escritorio</h3>
+            <span className="texto-suave" style={{ fontSize: 12 }}>{numero(totalDias)} días hábiles en total</span></div>
+          <div className="panel-cuerpo" style={{ height: Math.max(90, f.tiempo_por_destino.length * 30 + 20) }}>
+            <ResponsiveContainer>
+              <BarChart data={f.tiempo_por_destino.slice(0, 12)} layout="vertical" margin={{ top: 0, right: 40, left: 10, bottom: 0 }}>
+                <XAxis type="number" allowDecimals={false} fontSize={11} unit=" d" />
+                <YAxis type="category" dataKey="destino" width={230} fontSize={11} tickFormatter={(v) => (v.length > 34 ? `${v.slice(0, 33)}…` : v)} />
+                <Tooltip formatter={(v) => [`${v} días hábiles`, 'Permanencia']} />
+                <Bar dataKey="dias" radius={[0, 4, 4, 0]} isAnimationActive={false} label={{ position: 'right', fontSize: 11 }}>
+                  {f.tiempo_por_destino.slice(0, 12).map((x, k) => <Cell key={x.destino} fill={k === 0 ? '#ea580c' : '#2d5a9e'} />)}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
           </div>
-        )
-      })}
-      {!f.movimientos.length && <div className="texto-suave">No hay movimientos registrados.</div>}
-      {['FINALIZADO', 'ARCHIVADO', 'CERRADO_HISTORICO'].includes(e.estado) && e.estado === 'CERRADO_HISTORICO' && (
-        <div className="paso cierre"><div className="titulo">{fecha(e.fecha_cierre)} · Cerrado</div><div className="detalle">{e.motivo_cierre}</div></div>
+        </div>
       )}
-    </div>
+      <div className="linea-tiempo">
+        {f.movimientos.map(m => {
+          const clase = m.paso_actual ? 'actual' : m.tipo === 'OBSERVACION' ? 'observacion'
+            : ['FINALIZACION', 'ARCHIVO'].includes(m.tipo) ? 'cierre' : ''
+          const ancho = totalDias && m.dias_en_paso ? Math.max(2, Math.min(100, (m.dias_en_paso / totalDias) * 100)) : 0
+          return (
+            <div key={m.id} className={`paso ${clase}${m.fecha_valida ? '' : ' invalido'}`}>
+              <div className="titulo">{fecha(m.fecha)} · {m.tipo || 'Movimiento'} → {m.destino_nombre || m.destino_texto || 'Sin destino registrado'}</div>
+              {ancho > 0 && <div className="barra-paso" title={`${m.dias_en_paso} d.h.`}><div style={{ width: `${ancho}%` }} /></div>}
+              <div className="detalle">
+                {m.documento && <>Doc.: {m.documento} · </>}
+                {m.folios && <>Folios: {m.folios} · </>}
+                {m.dias_en_paso !== undefined && m.dias_en_paso !== null && <>{m.paso_actual ? `Lleva ${m.dias_en_paso} d.h. aquí` : `Permaneció ${m.dias_en_paso} d.h.`} · </>}
+                {m.usuario_nombre ? `Registró: ${m.usuario_nombre} (${fechaHora(m.registrado_en)})` : m.importado ? 'Registro del sistema anterior' : ''}
+                {!m.fecha_valida && <> · <b>Fecha posterior al corte de importación: error de registro en el origen</b></>}
+              </div>
+              {m.recibido_en && <div className="detalle" style={{ color: 'var(--bajo)' }}>✍ Recibido por {m.recibido_por} el {fechaHora(m.recibido_en)}</div>}
+              {m.por_recibir && <div className="detalle" style={{ color: 'var(--alto)' }}>Recepción pendiente de firma</div>}
+              {m.observacion && <div className="detalle" style={{ color: 'var(--texto)', marginTop: 2 }}>{m.observacion}</div>}
+            </div>
+          )
+        })}
+        {!f.movimientos.length && <div className="texto-suave">No hay movimientos registrados.</div>}
+        {e.estado === 'CERRADO_HISTORICO' && (
+          <div className="paso cierre"><div className="titulo">{fecha(e.fecha_cierre)} · Cerrado</div><div className="detalle">{e.motivo_cierre}</div></div>
+        )}
+      </div>
+      {f.asignaciones && f.asignaciones.length > 0 && (
+        <>
+          <h3 style={{ margin: '16px 0 6px' }}>Asignaciones (modelo de asignación)</h3>
+          <table className="tabla"><thead><tr><th>Asignado</th><th>Trabajador</th><th>Fecha límite</th><th>Estado</th><th className="num">IUA</th><th className="num">eᵢⱼ</th><th>Lote</th></tr></thead>
+            <tbody>{f.asignaciones.map(a => <tr key={a.id}><td>{fecha(a.fecha_asignacion)}</td><td>{a.usuario}</td><td>{fecha(a.fecha_limite)}</td>
+              <td>{a.estado}</td><td className="num">{a.iua_al_asignar?.toFixed(3) ?? '—'}</td><td className="num">{a.eij_score?.toFixed(3) ?? '—'}</td><td className="mono suave">{a.lote_id}</td></tr>)}</tbody></table>
+        </>
+      )}
+    </>
   )
 }

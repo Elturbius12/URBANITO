@@ -27,15 +27,25 @@ const ROLES = {
   },
 }
 
+// Permisos de la v2 (asignación óptima y seguimiento):
+//   asignaciones      ejecutar el modelo MILP y confirmar asignaciones (solo ADMINISTRADOR, vía '*')
+//   asignaciones_ver  ver las asignaciones confirmadas (de su alcance)
+//   seguimiento       panel de avance de todos los trabajadores y consolidado semanal
+//   mis_asignaciones  ver y actualizar las asignaciones propias
+//   reporte_semanal   llenar el reporte semanal de los jueves
+// Las notificaciones propias no requieren permiso: todo usuario con sesión las ve.
 const PERMISOS = {
   ADMINISTRADOR: ['*'],
   GERENTE: ['consultar', 'bandeja', 'alertas', 'tablero', 'departamentos', 'modelos_ver',
             'modelos_editar', 'reportes', 'derivar', 'observar', 'subsanar', 'finalizar',
-            'archivar', 'depurar', 'importar'],
+            'archivar', 'depurar', 'importar', 'seguimiento', 'asignaciones_ver'],
   JEFE_DEPARTAMENTO: ['consultar', 'bandeja', 'alertas', 'tablero', 'departamentos', 'modelos_ver',
-                      'reportes', 'derivar', 'observar', 'subsanar', 'finalizar', 'archivar', 'depurar', 'importar'],
+                      'reportes', 'derivar', 'observar', 'subsanar', 'finalizar', 'archivar', 'depurar', 'importar',
+                      'asignaciones_ver',
+                      // los jefes también atienden expedientes (son parte de los 15 trabajadores del modelo)
+                      'mis_asignaciones', 'reporte_semanal'],
   TECNICO: ['consultar', 'bandeja', 'alertas', 'modelos_ver', 'derivar', 'observar', 'subsanar',
-            'finalizar', 'archivar'],
+            'finalizar', 'archivar', 'mis_asignaciones', 'reporte_semanal'],
   MESA_PARTES: ['consultar', 'registrar', 'subsanar', 'modelos_ver', 'corregir', 'importar'],
 }
 

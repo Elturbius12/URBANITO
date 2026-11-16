@@ -24,11 +24,16 @@ const ESTADOS = {
   ARCHIVADO: 'Archivado',
   CERRADO_HISTORICO: 'Cerrado (sistema anterior)',
   SIN_FECHA: 'Sin fechas registradas',
+  INCOMPLETO: 'Registro incompleto (revisar)',     // Control 2026: fila sin datos útiles; no entra a los modelos
 }
 const CERRADOS = new Set(['FINALIZADO', 'ARCHIVADO', 'CERRADO_HISTORICO'])
 const RESULTADOS_FINALIZACION = ['APROBADO / PROCEDENTE', 'DENEGADO / IMPROCEDENTE', 'ATENDIDO']
 const MOTIVOS_ARCHIVO = ['Desistimiento del administrado', 'Abandono (no subsanó)',
                          'Improcedente', 'Duplicado', 'Acumulado a otro expediente', 'Otro']
+// Personal: hay trabajadores que cubren dos departamentos por falta de personal
+const MAX_DEPARTAMENTOS_USUARIO = 2
+const CAPACIDAD_DEFECTO = 10            // usuarios.capacidad_maxima por defecto
+const CAPACIDAD_MAXIMA_PERMITIDA = 200
 
 class ErrorUsuario extends Error {
   constructor(mensaje, codigo = 'VALIDACION') {
@@ -62,7 +67,11 @@ class Sistema {
     this.cargar()
     this.respaldoAutomatico()
     this.reloj = setInterval(() => {
-      if (this.r && this.r.hoy !== this.hoy()) this.recalcular()
+      if (this.r && this.r.hoy !== this.hoy()) {
+        this.recalcular()
+        // si el programa queda abierto de un día para otro, también se respalda el nuevo día
+        try { this.respaldoAutomatico() } catch (err) { console.error('respaldo automático:', err) }
+      }
     }, 60 * 1000)
     if (this.reloj.unref) this.reloj.unref()
   }
@@ -108,6 +117,7 @@ class Sistema {
 
   recalcular() {
     this.r = calcularModelos(this.almacen, this.cal, this.hoy())
+    this.ultimoCambio = ahoraIso()      // la interfaz (polling) refresca las pantallas abiertas
     for (const fn of this.oyentes) {
       try { fn(this.r) } catch (_) { /* un oyente no debe tumbar el sistema */ }
     }
@@ -174,7 +184,8 @@ class Sistema {
     return { ok: true, usuarios_demo: demo }
   }
 
-  insertarUsuario({ usuario, nombre_completo, rol, departamento_codigo = null, alias_historico = null, departamentos },
+  insertarUsuario({ usuario, nombre_completo, rol, departamento_codigo = null, alias_historico = null, departamentos,
+                    capacidad_maxima },
                   clave, debeCambiar) {
     const u = texto(usuario, 30).toLowerCase()
     if (!/^[a-z0-9._-]{3,30}$/.test(u)) {
@@ -187,14 +198,26 @@ class Sistema {
     if (nombre.length < 3) throw new ErrorUsuario('Ingrese el nombre completo.')
     if (!seg.ROLES[rol]) throw new ErrorUsuario('Rol inválido.')
     const { principal, lista } = this.validarDepartamentoRol(rol, departamento_codigo, departamentos)
+    const capacidad = this.validarCapacidad(capacidad_maxima, CAPACIDAD_DEFECTO)
     const { hash, sal } = seg.cifrarClave(clave)
     const id = this.bd.ejecutar(
       `INSERT INTO usuarios(usuario, nombre_completo, rol, departamento_codigo, alias_historico,
-       hash, sal, activo, debe_cambiar_clave, creado_en) VALUES (?,?,?,?,?,?,?,1,?,?)`,
+       hash, sal, activo, debe_cambiar_clave, creado_en, capacidad_maxima) VALUES (?,?,?,?,?,?,?,1,?,?,?)`,
       [u, nombre, rol, principal, alias_historico ? texto(alias_historico, 60).toUpperCase() : null,
-       hash, sal, debeCambiar ? 1 : 0, ahoraIso()]).ultimoId
-    this.guardarDepartamentosUsuario(id, lista)
+       hash, sal, debeCambiar ? 1 : 0, ahoraIso(), capacidad]).ultimoId
+    this.guardarDepartamentosUsuario(id, lista, principal)
     return id
+  }
+
+  // Capacidad máxima de asignaciones simultáneas (restricción (2) del modelo MILP).
+  // Vacío o no enviado = valor por defecto.
+  validarCapacidad(valor, defecto) {
+    if (valor === undefined || valor === null || valor === '') return defecto
+    const n = Number(valor)
+    if (!Number.isInteger(n) || n < 1 || n > CAPACIDAD_MAXIMA_PERMITIDA) {
+      throw new ErrorUsuario(`Capacidad máxima: número entero de expedientes entre 1 y ${CAPACIDAD_MAXIMA_PERMITIDA}.`)
+    }
+    return n
   }
 
   // Valida el departamento principal y la lista de departamentos de un usuario.
@@ -213,6 +236,9 @@ class Sistema {
     if (lista.length > 1 && !['JEFE_DEPARTAMENTO', 'TECNICO'].includes(rol)) {
       throw new ErrorUsuario('Solo un jefe de departamento o un técnico puede trabajar en más de un departamento.')
     }
+    if (lista.length > MAX_DEPARTAMENTOS_USUARIO) {
+      throw new ErrorUsuario(`Un usuario puede trabajar como máximo en ${MAX_DEPARTAMENTOS_USUARIO} departamentos.`)
+    }
     for (const d of lista) {
       if (!this.bd.una('SELECT codigo FROM departamentos WHERE codigo = ?', [d])) {
         throw new ErrorUsuario('Departamento inválido.')
@@ -221,10 +247,11 @@ class Sistema {
     return { principal, lista }
   }
 
-  guardarDepartamentosUsuario(id, lista) {
+  guardarDepartamentosUsuario(id, lista, principal) {
     this.bd.ejecutar('DELETE FROM usuario_departamentos WHERE usuario_id = ?', [id])
     for (const d of lista) {
-      this.bd.ejecutar('INSERT INTO usuario_departamentos(usuario_id, departamento_codigo) VALUES (?,?)', [id, d])
+      this.bd.ejecutar('INSERT INTO usuario_departamentos(usuario_id, departamento_codigo, es_principal) VALUES (?,?,?)',
+        [id, d, d === principal ? 1 : 0])
     }
   }
 
@@ -297,6 +324,7 @@ class Sistema {
       departamentos: propios, departamentos_elegibles: elegibles,
       debe_cambiar_clave: !!u.debe_cambiar_clave, permisos, activo: !!u.activo,
       ultimo_acceso: u.ultimo_acceso, creado_en: u.creado_en,
+      capacidad_maxima: u.capacidad_maxima ?? CAPACIDAD_DEFECTO,
     }
   }
 
@@ -455,7 +483,12 @@ class Sistema {
   }
 
   escritura(id, fn) {
-    const r = this.bd.transaccion(fn)
+    const r = this.bd.transaccion(() => {
+      const res = fn()
+      // las asignaciones (Modelo 3) siguen lo que pasa con el expediente
+      if (id !== null && id !== undefined) this.sincronizarAsignaciones([Number(id)])
+      return res
+    })
     if (id !== null && id !== undefined) this.recargarExpediente(Number(id))
     this.recalcular()
     return r
@@ -478,8 +511,10 @@ class Sistema {
     const destino = this.resolverDestino(datos.destino || (p.departamento_codigo
       ? { tipo: 'DEPARTAMENTO', codigo: p.departamento_codigo } : null))
     const anio = fecha.slice(0, 4)
+    const adm = datos.administrado && typeof datos.administrado === 'object' ? datos.administrado : null
 
     let nuevo = null
+    let credenciales = null
     this.bd.transaccion(() => {
       const filas = this.bd.todas("SELECT numero FROM expedientes WHERE sistema = 'URBANITO' AND numero LIKE ?", [`%-${anio}`])
       const max = filas.reduce((m, f) => Math.max(m, parseInt(f.numero, 10) || 0), 0)
@@ -496,11 +531,17 @@ class Sistema {
       this.insertarMovimiento(e, u, { fecha, tipo: 'REGISTRO', destino, folios,
                                       observacion: texto(datos.observacion, 2000) })
       this.auditar(u, 'REGISTRAR_EXPEDIENTE', 'expedientes', id, `${numero} — ${p.nombre} — ${solicitante}`)
+      this.notificarDerivacion({ id, numero, procedimiento_codigo: p.codigo }, u, destino)
+      // portal ciudadano: cuenta del administrado si su DNI es nuevo
+      if (adm && /^\d{8}$/.test(doc)) {
+        credenciales = this.registrarAdministradoSiNuevo(u, { dni: doc, nombres: adm.nombres, apellidos: adm.apellidos,
+                                                             whatsapp: adm.whatsapp || datos.telefono })
+      }
       nuevo = { id, numero }
     })
     this.recargarExpediente(nuevo.id)
     this.recalcular()
-    return { ...nuevo, constancia: this.constancia(nuevo.id) }
+    return { ...nuevo, constancia: this.constancia(nuevo.id), credenciales_portal: credenciales }
   }
 
   constancia(id) {
@@ -534,6 +575,7 @@ class Sistema {
                         responsable_usuario_id = ? WHERE id = ?`,
         [destino.tipo, destino.codigo, destino.nombre, destino.usuario_id, e.id])
       this.auditar(u, 'DERIVAR', 'expedientes', e.id, `${e.numero} → ${destino.nombre}`)
+      this.notificarDerivacion(e, u, destino)
       return { ok: true }
     })
   }
@@ -721,6 +763,7 @@ class Sistema {
         }
         this.auditar(u, 'DEPURAR_IMPORTADO', 'expedientes', e.id, `${e.numero}: ${accion} — ${obs}`)
       }
+      this.sincronizarAsignaciones(lista.map(e => e.id))
     })
     for (const e of lista) this.recargarExpediente(e.id)
     this.recalcular()
@@ -767,6 +810,21 @@ class Sistema {
       if (!Number.isInteger(n) || n < 1 || n > 30) throw new ErrorUsuario('Días de alerta: entre 1 y 30.')
       p.dias_alerta_por_vencer = n
     }
+    if (datos.dias_abandono !== undefined) {
+      const n = Number(datos.dias_abandono)
+      if (!Number.isInteger(n) || n < 5 || n > 365) throw new ErrorUsuario('Días para considerar abandonado: entre 5 y 365.')
+      p.dias_abandono = n
+    }
+    if (datos.fecha_implementacion !== undefined) {
+      const f = texto(datos.fecha_implementacion, 10)
+      if (f && !this.cal.indice(f)) throw new ErrorUsuario('Fecha de implementación inválida.')
+      p.fecha_implementacion = f || null
+    }
+    if (datos.portal_url !== undefined) {
+      const url = texto(datos.portal_url, 200)
+      if (url && !/^https?:\/\/[^\s]+$/i.test(url)) throw new ErrorUsuario('La dirección del portal debe empezar con http:// o https://')
+      p.portal_url = url || null
+    }
     this.bd.transaccion(() => {
       this.bd.ejecutar("UPDATE configuracion SET valor = ? WHERE clave = 'parametros'", [JSON.stringify(p)])
       this.auditar(u, 'CAMBIAR_PARAMETROS', 'configuracion', 'parametros', { antes: cfg.parametros, despues: p })
@@ -810,6 +868,7 @@ class Sistema {
     const alias = datos.alias_historico === undefined ? x.alias_historico
       : (texto(datos.alias_historico, 60).toUpperCase() || null)
     const activo = datos.activo === undefined ? x.activo : (datos.activo ? 1 : 0)
+    const capacidad = this.validarCapacidad(datos.capacidad_maxima, x.capacidad_maxima ?? CAPACIDAD_DEFECTO)
     if (x.id === u.id && (!activo || rol !== 'ADMINISTRADOR')) {
       throw new ErrorUsuario('No puede desactivarse ni quitarse el rol de administrador a sí mismo.')
     }
@@ -819,12 +878,13 @@ class Sistema {
     }
     this.bd.transaccion(() => {
       this.bd.ejecutar(`UPDATE usuarios SET nombre_completo = ?, rol = ?, departamento_codigo = ?,
-                        alias_historico = ?, activo = ? WHERE id = ?`, [nombre, rol, principal, alias, activo, x.id])
-      this.guardarDepartamentosUsuario(x.id, lista)
+                        alias_historico = ?, activo = ?, capacidad_maxima = ? WHERE id = ?`,
+        [nombre, rol, principal, alias, activo, capacidad, x.id])
+      this.guardarDepartamentosUsuario(x.id, lista, principal)
       this.auditar(u, 'EDITAR_USUARIO', 'usuarios', x.id, {
         antes: { nombre: x.nombre_completo, rol: x.rol, dep: x.departamento_codigo, departamentos: x.departamentos,
-                 alias: x.alias_historico, activo: x.activo },
-        despues: { nombre, rol, dep: principal, departamentos: lista, alias, activo } })
+                 alias: x.alias_historico, activo: x.activo, capacidad_maxima: x.capacidad_maxima },
+        despues: { nombre, rol, dep: principal, departamentos: lista, alias, activo, capacidad_maxima: capacidad } })
     })
     if (!activo || rol !== x.rol) this.sesiones.cerrarDeUsuario(x.id)
     this.cargarCatalogos()
@@ -1030,9 +1090,17 @@ function formatoFecha(f) {
   return `${d}/${m}/${a}`
 }
 
-module.exports = { Sistema, ErrorUsuario, ESTADOS, CERRADOS, RESULTADOS_FINALIZACION, MOTIVOS_ARCHIVO, formatoFecha, texto, ahoraIso }
+module.exports = { Sistema, ErrorUsuario, ESTADOS, CERRADOS, RESULTADOS_FINALIZACION, MOTIVOS_ARCHIVO, formatoFecha, texto, ahoraIso,
+                   MAX_DEPARTAMENTOS_USUARIO, CAPACIDAD_DEFECTO }
 
 // Las consultas (pantallas de solo lectura) están en consultas.js
 require('./consultas')
 require('./usuariosDepartamento')
 require('./importacion')
+// v2 — el orden importa: mejoras.js extiende ficha() y alertas() de consultas.js
+require('./notificaciones')
+require('./asignacionServicio')
+require('./reportesSemanales')
+require('./mejoras')
+require('./importador2026')
+require('./portalCiudadano')

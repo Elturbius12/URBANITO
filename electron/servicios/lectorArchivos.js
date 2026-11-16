@@ -150,7 +150,8 @@ async function leerXlsx(nombre, buf) {
   }
   const libro = new ExcelJS.Workbook()
   try {
-    await libro.xlsx.load(buf, { ignoreNodes: ['dataValidations', 'conditionalFormatting', 'drawing', 'picture'] })
+    // 'tableParts': exceljs falla con algunas «tablas» de Excel y no se necesitan para leer valores
+    await libro.xlsx.load(buf, { ignoreNodes: ['dataValidations', 'conditionalFormatting', 'drawing', 'picture', 'tableParts'] })
   } catch (_) {
     throw new ErrorArchivo(`No se pudo leer "${nombre}". El archivo está dañado o no es un Excel válido.`)
   }

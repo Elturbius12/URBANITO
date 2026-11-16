@@ -88,8 +88,10 @@ function FormUsuario({ u, cat, alCerrar, alListo }) {
   const { datos: alias } = useDatos('alias_historicos', {})
   const [f, setF] = useState({ usuario: u.usuario || '', nombre_completo: u.nombre_completo || '', rol: u.rol || 'TECNICO',
     departamento_codigo: u.departamento_codigo || '', alias_historico: u.alias_historico || '', activo: u.activo !== false,
-    departamentos: (u.departamentos || []).map(d => d.codigo) })
+    departamentos: (u.departamentos || []).map(d => d.codigo),
+    capacidad_maxima: u.capacidad_maxima ?? 10 })
   const multiple = ['JEFE_DEPARTAMENTO', 'TECNICO'].includes(f.rol)
+  const MAX_DEPS = 2     // mismo límite que el núcleo (sistema.js)
   const marcar = (codigo) => (e) => {
     const lista = e.target.checked ? [...new Set([...f.departamentos, codigo])] : f.departamentos.filter(c => c !== codigo)
     const principal = lista.includes(f.departamento_codigo) ? f.departamento_codigo : (lista[0] || '')
@@ -101,6 +103,7 @@ function FormUsuario({ u, cat, alCerrar, alListo }) {
   const guardar = async () => {
     const deps = multiple ? f.departamentos : (f.departamento_codigo ? [f.departamento_codigo] : [])
     const datos = { ...f, departamento_codigo: f.departamento_codigo || null, alias_historico: f.alias_historico || null,
+                    capacidad_maxima: f.capacidad_maxima === '' ? null : Number(f.capacidad_maxima),
                     departamentos: f.departamento_codigo && !deps.includes(f.departamento_codigo) ? [f.departamento_codigo, ...deps] : deps }
     const r = await ejecutar(() => nuevo ? llamar('crear_usuario', datos) : llamar('editar_usuario', { ...datos, id: u.id }),
       nuevo ? 'Usuario creado' : 'Usuario actualizado')
@@ -125,14 +128,20 @@ function FormUsuario({ u, cat, alCerrar, alListo }) {
           </select>
         </Campo>
         {multiple && (
-          <Campo etiqueta="Departamentos en que trabaja" completo ayuda="Marque todos los departamentos que atiende. El principal se elige arriba.">
+          <Campo etiqueta="Departamentos en que trabaja" completo ayuda={`Marque los departamentos que atiende (máximo ${MAX_DEPS}). El principal se elige arriba.`}>
             <div className="lista-departamentos" data-campo="departamentos">
               {cat.departamentos.map(d => (
                 <label key={d.codigo}>
-                  <input type="checkbox" checked={f.departamentos.includes(d.codigo)} onChange={marcar(d.codigo)} />
+                  <input type="checkbox" checked={f.departamentos.includes(d.codigo)} onChange={marcar(d.codigo)}
+                         disabled={!f.departamentos.includes(d.codigo) && f.departamentos.length >= MAX_DEPS} />
                   {d.nombre.replace(/^Departamento de /, '')}{f.departamento_codigo === d.codigo && <b> (principal)</b>}
                 </label>))}
             </div>
+          </Campo>
+        )}
+        {multiple && (
+          <Campo etiqueta="Capacidad máxima" ayuda="Cuántos expedientes puede tener asignados a la vez (lo usa el modelo de asignación).">
+            <input type="number" min="1" max="200" value={f.capacidad_maxima} onChange={set('capacidad_maxima')} data-campo="capacidad" />
           </Campo>
         )}
         <Campo etiqueta="Nombre en los registros del sistema anterior" completo

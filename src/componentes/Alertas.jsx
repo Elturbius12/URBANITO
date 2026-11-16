@@ -23,6 +23,9 @@ export default function Alertas() {
     estancados: { filas: a.estancados, titulo: 'Estancados',
       texto: 'Llevan en su ubicación actual más días sin movimiento que el percentil 80 histórico de esa misma oficina o persona (Modelo 2). Solo se evalúan ubicaciones con al menos 30 pasos históricos.',
       columnas: ['numero', 'solicitante', 'tramite', 'ubicacion', 'sin_mov', 'iua', 'nivel'] },
+    abandonados: { filas: a.abandonados || [], titulo: `Abandonados (sin movimiento por ${a.dias_abandono} d.h. o más)`,
+      texto: `Llevan ${a.dias_abandono} días hábiles o más sin ningún movimiento registrado. Revise si siguen en trámite, si deben derivarse o archivarse. El administrador cambia este límite en Configuración › Parámetros.`,
+      columnas: ['numero', 'solicitante', 'tramite', 'ubicacion', 'sin_mov', 'iua', 'nivel'] },
     observados: { filas: a.observados, titulo: 'Observados',
       texto: 'Esperan que el administrado subsane. El plazo está suspendido. Si no subsana, pueden archivarse por abandono.',
       columnas: ['numero', 'solicitante', 'tramite', 'ubicacion', 'sin_mov', 'nivel'] },
@@ -35,6 +38,7 @@ export default function Alertas() {
         { clave: 'vencidos', etiqueta: `Vencidos (${a.vencidos.length})` },
         { clave: 'por_vencer', etiqueta: `Por vencer (${a.por_vencer.length})` },
         { clave: 'estancados', etiqueta: `Estancados (${a.estancados.length})` },
+        { clave: 'abandonados', etiqueta: `Abandonados (${(a.abandonados || []).length})` },
         { clave: 'observados', etiqueta: `Observados (${a.observados.length})` },
       ]} />
       <Aviso tipo="informativo">{g.texto}</Aviso>

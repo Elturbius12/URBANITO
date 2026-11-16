@@ -8,9 +8,9 @@ import { numero } from '../formato'
 export default function Buscar({ inicial = {} }) {
   const { version } = useApp()
   const { datos: cat } = useDatos('catalogos', {})
-  const [f, setF] = useState({ texto: '', documento: '', estado: '', sistema: inicial.sistema || '', procedimiento: '', desde: '', hasta: '',
+  const [f, setF] = useState({ texto: inicial.texto || '', documento: '', estado: '', sistema: inicial.sistema || '', procedimiento: '', desde: '', hasta: '',
                                    importacion: inicial.importacion || '', pagina: 1 })
-  const [entrada, setEntrada] = useState({ texto: '', documento: '' })
+  const [entrada, setEntrada] = useState({ texto: inicial.texto || '', documento: '' })
   useEffect(() => {
     const t = setTimeout(() => setF(x => ({ ...x, ...entrada, pagina: 1 })), 350)
     return () => clearTimeout(t)

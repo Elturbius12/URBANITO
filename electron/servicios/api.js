@@ -9,6 +9,12 @@ const PUBLICAS = {
   configuracion_inicial: (s, d) => s.configuracionInicial(d || {}),
   login: (s, d) => s.login((d || {}).usuario, (d || {}).clave),
   ping: () => ({ ok: true, servicio: 'URBANITO' }),
+  // portal ciudadano (llevan su propio token de portal en los datos, distinto al de los trabajadores)
+  portal_ingresar: (s, d) => s.portalIngresar(d || {}),
+  portal_cambiar_clave: (s, d) => s.portalCambiarClave(d || {}),
+  portal_mis_tramites: (s, d) => s.portalMisTramites(d || {}),
+  portal_consulta_dni: (s, d) => s.portalConsultaDni(d || {}),
+  portal_salir: (s, d) => s.portalSalir(d || {}),
 }
 
 // Acciones con sesión: (sistema, usuario, datos, token)
@@ -70,15 +76,56 @@ const PRIVADAS = {
   respaldos: (s, u) => s.listarRespaldos(u),
   crear_respaldo: (s, u) => s.crearRespaldo(u),
   auditoria: (s, u, d) => s.auditoria(u, d),
+
+  // ---- v2: importación del Control de Expedientes 2026 y documento TUPA
+  importar2026_previsualizar: (s, u, d, token, ctx) => s.importar2026Previsualizar(u, d, { progreso: ctx.progreso }),
+  importar2026_confirmar: (s, u, d, token, ctx) => s.importar2026Confirmar(u, d, { progreso: ctx.progreso }),
+  subir_tupa: (s, u, d) => s.tupaSubir(u, d),
+  tupa_documentos: (s, u) => s.tupaListar(u),
+  descargar_tupa: (s, u, d) => s.tupaDescargar(u, d),
+
+  // ---- v2: Modelo 3 (asignación óptima MILP) y seguimiento
+  asignacion_ejecutar: (s, u, d) => s.asignacionEjecutar(u, d),
+  asignacion_confirmar: (s, u, d) => s.asignacionConfirmar(u, d),
+  asignaciones: (s, u, d) => s.asignacionesListar(u, d),
+  asignacion_actualizar: (s, u, d) => s.asignacionActualizar(u, d),
+  eficiencia: (s, u, d) => s.eficienciaListar(u, d),
+  seguimiento: (s, u, d) => s.seguimiento(u, d),
+  actividad_usuarios: (s, u, d) => s.actividadUsuarios(u, d),
+
+  // ---- v2: notificaciones y reportes semanales
+  notificaciones: (s, u, d) => s.notificacionesListar(u, d),
+  notificaciones_nuevas: (s, u, d) => s.notificacionesNuevas(u, d),
+  notificacion_leida: (s, u, d) => s.notificacionMarcarLeida(u, d),
+  al_abrir: (s, u) => s.notificacionesAlAbrir(u),
+  reporte_semanal_estado: (s, u) => s.reporteSemanalEstado(u),
+  reporte_semanal_enviar: (s, u, d) => s.reporteSemanalEnviar(u, d),
+  reportes_consolidado: (s, u, d) => s.reportesConsolidado(u, d),
+
+  // ---- v2: mejoras
+  pendientes_recepcion: (s, u) => s.pendientesRecepcion(u),
+  recibir: (s, u, d) => s.recibirExpedientes(u, d),
+  plantillas_observacion: (s, u) => s.plantillasObservacion(u),
+  guardar_plantillas_observacion: (s, u, d) => s.guardarPlantillasObservacion(u, d),
+  busqueda_universal: (s, u, d) => s.busquedaUniversal(u, d),
+  finalizados: (s, u, d) => s.finalizados(u, d),
+  antes_despues: (s, u) => s.antesDespues(u),
+  crear_departamento: (s, u, d) => s.crearDepartamento(u, d),
+
+  // ---- v2: portal ciudadano (desde mesa de partes)
+  administrado_buscar: (s, u, d) => s.administradoBuscar(u, d),
+  administrado_separar_nombre: (s, u, d) => s.separarNombreAdministrado(u, d),
+  administrado_restablecer: (s, u, d) => s.administradoRestablecer(u, d),
 }
 
 // Acciones que llevan un archivo (base64) y usan el canal de red de mayor tamaño
-const CON_ARCHIVO = new Set(['importar_previsualizar', 'importar_confirmar'])
+const CON_ARCHIVO = new Set(['importar_previsualizar', 'importar_confirmar', 'importar2026_previsualizar', 'importar2026_confirmar',
+  'subir_tupa'])
 
 // Acciones de consulta que se filtran por el «departamento activo» elegido en la interfaz
 const FILTRABLES = new Set(['resumen', 'bandeja', 'alertas', 'departamentos', 'tablero', 'importados_en_tramite',
   'exportar_busqueda', 'productividad', 'importar_departamentos', 'importar_previsualizar', 'importar_confirmar',
-  'plantilla_importacion'])
+  'plantilla_importacion', 'finalizados', 'antes_despues'])
 
 // Acciones que solo se permiten desde la propia PC servidor (manejan archivos locales)
 const SOLO_LOCAL = new Set(['restaurar_respaldo'])

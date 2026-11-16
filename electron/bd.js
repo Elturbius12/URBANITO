@@ -9,6 +9,9 @@ const initSqlJs = require('sql.js/dist/sql-wasm.js')
 
 let SQL = null
 
+// Versión de esquema que espera este programa (ver BaseDatos.migrar)
+const VERSION_ESQUEMA = 2
+
 async function cargarMotorSql() {
   if (SQL) return SQL
   // En el programa compilado el .wasm va junto al código; en desarrollo, en node_modules.
@@ -118,10 +121,23 @@ class BaseDatos {
     return new Set(this.todas(`PRAGMA table_info(${tabla})`).map(c => c.name))
   }
 
+  // Versión del esquema guardada en configuracion.version_esquema:
+  //   1 — base inicial (preparar_semilla.py)
+  //   2 — v2: asignaciones MILP, eficiencia, reportes semanales, notificaciones,
+  //       administrados (portal), TUPA; usuarios.capacidad_maxima;
+  //       usuario_departamentos.es_principal; importaciones.anio_filtro
+  versionEsquema() {
+    const f = this.una("SELECT valor FROM configuracion WHERE clave = 'version_esquema'")
+    const v = f ? Number(JSON.parse(f.valor)) : 1
+    return Number.isFinite(v) ? v : 1
+  }
+
   // Migración de esquema idempotente para bases ya existentes (la semilla y
   // las ya instaladas). Las tablas nuevas las crea esquema.sql (CREATE TABLE
-  // IF NOT EXISTS); aquí se agregan columnas nuevas a tablas antiguas.
-  // Devuelve la lista de cambios aplicados.
+  // IF NOT EXISTS); aquí se agregan columnas nuevas a tablas antiguas y se
+  // completan los datos derivados. Cada paso verifica por sí mismo si hace
+  // falta (no depende solo del número de versión), así una base a medio
+  // migrar también se corrige. Devuelve la lista de cambios aplicados.
   migrar() {
     const aplicados = []
     const agregar = (tabla, columna, tipo) => {
@@ -130,6 +146,7 @@ class BaseDatos {
         aplicados.push(`${tabla}.${columna}`)
       }
     }
+    // ---- versión 1 (importación desde la interfaz)
     agregar('expedientes', 'importacion_id', 'INTEGER REFERENCES importaciones(id)')
     agregar('movimientos', 'importacion_id', 'INTEGER REFERENCES importaciones(id)')
     agregar('expedientes', 'recibo_numero', 'TEXT')
@@ -142,6 +159,27 @@ class BaseDatos {
     this.db.run(`INSERT OR IGNORE INTO usuario_departamentos(usuario_id, departamento_codigo)
                  SELECT id, departamento_codigo FROM usuarios WHERE departamento_codigo IS NOT NULL`)
     if (this.db.getRowsModified()) aplicados.push(`usuario_departamentos (${this.db.getRowsModified()} filas)`)
+
+    // ---- versión 2 (asignación óptima y seguimiento)
+    agregar('usuarios', 'capacidad_maxima', 'INTEGER DEFAULT 10')
+    agregar('usuario_departamentos', 'es_principal', 'INTEGER NOT NULL DEFAULT 0')
+    agregar('importaciones', 'anio_filtro', 'TEXT')
+    // es_principal = 1 solo para el departamento principal (usuarios.departamento_codigo)
+    this.db.run(`UPDATE usuario_departamentos
+                 SET es_principal = CASE WHEN departamento_codigo =
+                       (SELECT u.departamento_codigo FROM usuarios u WHERE u.id = usuario_departamentos.usuario_id)
+                     THEN 1 ELSE 0 END
+                 WHERE es_principal <> CASE WHEN departamento_codigo =
+                       (SELECT u.departamento_codigo FROM usuarios u WHERE u.id = usuario_departamentos.usuario_id)
+                     THEN 1 ELSE 0 END`)
+    if (this.db.getRowsModified()) aplicados.push(`usuario_departamentos.es_principal (${this.db.getRowsModified()} filas)`)
+
+    const anterior = this.versionEsquema()
+    if (anterior < VERSION_ESQUEMA) {
+      this.db.run("INSERT OR REPLACE INTO configuracion(clave, valor) VALUES ('version_esquema', ?)",
+        [JSON.stringify(VERSION_ESQUEMA)])
+      aplicados.push(`versión de esquema ${anterior} → ${VERSION_ESQUEMA}`)
+    }
     if (aplicados.length) this.guardar()
     return aplicados
   }
@@ -197,4 +235,4 @@ function copiarSiNoExiste(origen, destino) {
   return true
 }
 
-module.exports = { BaseDatos, cargarAlmacen, cargarMotorSql, copiarSiNoExiste }
+module.exports = { BaseDatos, cargarAlmacen, cargarMotorSql, copiarSiNoExiste, VERSION_ESQUEMA }

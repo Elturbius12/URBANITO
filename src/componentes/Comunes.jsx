@@ -5,9 +5,23 @@ import { createContext, useContext, useEffect, useState, useCallback } from 'rea
 export const Contexto = createContext(null)
 export const useApp = () => useContext(Contexto)
 
+// permiso: un nombre o una lista (basta con tener uno de la lista)
 export function puede(usuario, permiso) {
   if (!usuario) return false
+  if (Array.isArray(permiso)) return permiso.some(p => puede(usuario, p))
   return usuario.permisos.includes('*') || usuario.permisos.includes(permiso)
+}
+
+// Semáforo de plazo de la bandeja: verde dentro de plazo, amarillo por vencer, rojo vencido
+export function colorPlazo(x, diasAlerta = 5) {
+  if (x.vencido) return { clase: 'rojo', texto: 'Vencido' }
+  if (x.dias_restantes === null || x.dias_restantes === undefined) return { clase: 'gris', texto: 'Sin plazo' }
+  if (x.dias_restantes <= diasAlerta) return { clase: 'amarillo', texto: 'Por vencer' }
+  return { clase: 'verde', texto: 'En plazo' }
+}
+
+export function Semaforo({ color, children, titulo }) {
+  return <span className={`luz ${color}`} title={titulo}><i />{children}</span>
 }
 
 // ------------------------------------------------------------ notificaciones

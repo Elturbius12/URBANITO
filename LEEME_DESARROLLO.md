@@ -36,3 +36,20 @@ node pruebas/generar_muestra_consolidado.js ../CONSOLIDADO_LIMPIO_V5.xlsx 150   
 node pruebas/prueba_importacion.js semilla/urbanito.db                  # incluida en npm run probar
 ```
 Las credenciales (`credenciales/`, `credenciales_*.xlsx`) están en `.gitignore`.
+
+## Esquema v2 (asignación óptima y seguimiento) — Fase 1
+- `configuracion.version_esquema` = 2 (`VERSION_ESQUEMA` en `electron/bd.js`). `bd.migrar()` sube las bases v1 al abrir; cada paso verifica si hace falta, así que es idempotente.
+- Tablas nuevas: `asignaciones`, `eficiencia_trabajador`, `reportes_semanales`, `notificaciones`, `administrados`, `tupa_documento` (+ índices).
+- Columnas nuevas: `usuarios.capacidad_maxima` (defecto 10), `usuario_departamentos.es_principal`, `importaciones.anio_filtro` (JSON de años).
+- `importaciones` NO se redefinió: la importación del Control 2026 usará la tabla existente con `formato = 'CONTROL_2026'` (equivalencias de columnas comentadas en `esquema.sql`).
+- Un usuario trabaja en máximo 2 departamentos (`MAX_DEPARTAMENTOS_USUARIO`).
+- Permisos nuevos (`seguridad.js`): `asignaciones`, `asignaciones_ver`, `seguimiento`, `mis_asignaciones`, `reporte_semanal`.
+- Prueba: `node pruebas/prueba_esquema_v2.js semilla/urbanito.db` (incluida en `npm run probar`).
+
+## v2 — Fases 2 a 7
+- Importador Control 2026: `electron/servicios/importador2026.js` (concilia con la base; no duplica). UI: `Importar2026.jsx`.
+- Modelo 3 (MILP): `electron/motor/asignacion.js` (glpk.js + heurística voraz), `servicios/asignacionServicio.js`, UI `Asignaciones.jsx`. `glpk.wasm` se copia a `compilado/`.
+- Notificaciones (`servicios/notificaciones.js`, campana con polling 10 s, GET `/api/notificaciones-nuevas`), reportes semanales (`servicios/reportesSemanales.js`, `ReporteSemanal.jsx`), seguimiento (`Seguimiento.jsx`).
+- Mejoras (`servicios/mejoras.js`): recepción firmada (tabla `recepciones`), plantillas, búsqueda universal, actividad, abandonados, finalizados, antes/después, crear departamento.
+- Portal ciudadano: `servicios/portalCiudadano.js` + `portal/` (Express, ver `portal/LEEME.md`).
+- Pruebas: `node pruebas/prueba_v2.js semilla/urbanito.db` (en `npm run probar`); interfaz: `node pruebas/e2e_v2.js` (requiere `npm i --no-save playwright`).

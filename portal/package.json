@@ -1,0 +1,14 @@
+{
+  "name": "urbanito-portal",
+  "version": "0.1.0",
+  "description": "Portal ciudadano de URBANITO: consulta del estado de trámites (aún no desplegado)",
+  "private": true,
+  "license": "UNLICENSED",
+  "main": "servidor.js",
+  "scripts": {
+    "iniciar": "node servidor.js"
+  },
+  "dependencies": {
+    "express": "4.21.2"
+  }
+}

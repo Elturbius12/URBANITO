@@ -10,7 +10,7 @@
   "scripts": {
     "compilar": "vite build && node herramientas/compilar_principal.js",
     "iniciar": "npm run compilar && electron .",
-    "probar": "node pruebas/validar_motor.js semilla/urbanito.db pruebas/referencia_2026-11-05.json 2026-11-05 && node pruebas/prueba_servicios.js semilla/urbanito.db && node pruebas/prueba_importacion.js semilla/urbanito.db",
+    "probar": "node pruebas/validar_motor.js semilla/urbanito.db pruebas/referencia_2026-11-05.json 2026-11-05 && node pruebas/prueba_servicios.js semilla/urbanito.db && node pruebas/prueba_importacion.js semilla/urbanito.db && node pruebas/prueba_esquema_v2.js semilla/urbanito.db && node pruebas/prueba_v2.js semilla/urbanito.db",
     "empaquetar:win": "npm run compilar && electron-builder --win --x64",
     "empaquetar:linux": "npm run compilar && electron-builder --linux dir",
     "crear-usuarios": "node herramientas/crear_usuarios_departamentos.js"
@@ -21,6 +21,7 @@
     "electron": "^33.4.11",
     "electron-builder": "^25.1.8",
     "exceljs": "^4.4.0",
+    "glpk.js": "^4.0.2",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "recharts": "^2.12.7",
