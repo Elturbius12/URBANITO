@@ -7,3 +7,4 @@ credenciales*
 .env
 urbanito.db
 respaldos/
+!src/componentes/Credenciales.jsx
