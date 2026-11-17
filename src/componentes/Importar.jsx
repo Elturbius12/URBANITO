@@ -1,13 +1,14 @@
 // Importar expedientes desde Excel o CSV, en 4 pasos:
 // 1) departamento y plantilla, 2) archivo, 3) vista previa (no guarda nada), 4) confirmar.
-// El archivo lo lee el proceso principal de esta PC; el núcleo (local o en la
-// PC servidor) vuelve a validarlo todo al confirmar.
+// El archivo lo lee el navegador y viaja en base64; el núcleo (en el servidor)
+// vuelve a validarlo todo al confirmar.
 import { useEffect, useState } from 'react'
 import { llamar, useDatos } from '../api'
 import { useApp, Panel, Cargando, ErrorCarga, Aviso, Modal, Campo, Insignia, Indicador, Paginacion, Vacio, Pestanas, useAccion } from './Comunes'
 import Importar2026 from './Importar2026'
 import { numero, fecha, fechaHora } from '../formato'
 import { exportarExcel } from '../exportar'
+import { elegirArchivoImportacion, paraEnviar, descargarBase64 } from '../archivos'
 
 const TAM_MUESTRA = 20
 const TAM_ERRORES = 50
@@ -18,9 +19,8 @@ export const neutralizar = (v) => (typeof v === 'string' && /^[=+\-@\t\r]/.test(
 export async function descargarPlantilla(notificar, departamento) {
   try {
     const r = await llamar('plantilla_importacion', { departamento: departamento || undefined })
-    const g = await window.urbanito.guardarArchivo({ nombre: r.nombre_archivo, base64: r.base64, titulo: 'Guardar plantilla de importación' })
-    if (g.ok) notificar(`Plantilla guardada: ${g.ruta}`, 'exito')
-    else if (!g.cancelado) notificar(g.error || 'No se pudo guardar la plantilla', 'error')
+    descargarBase64(r.nombre_archivo, r.base64)
+    notificar(`Plantilla descargada: ${r.nombre_archivo}`, 'exito')
   } catch (e) {
     notificar(e.message, 'error')
   }
@@ -60,10 +60,6 @@ function ImportarPlantilla() {
   useEffect(() => {
     if (deps && deps.length === 1 && !departamento) setDepartamento(deps[0].codigo)
   }, [deps, departamento])
-  useEffect(() => {
-    if (!window.urbanito.alProgreso) return undefined
-    return window.urbanito.alProgreso(p => setProgreso(p))
-  }, [])
 
   if (errDeps) return <ErrorCarga error={errDeps} reintentar={recDeps} />
   if (!deps) return <Cargando />
@@ -75,24 +71,24 @@ function ImportarPlantilla() {
 
   const elegir = async () => {
     setError(null); setPrevia(null); setResultado(null)
-    const r = await window.urbanito.elegirArchivoImportacion()
+    const r = await elegirArchivoImportacion('general')
     if (r.cancelado) return
     if (!r.ok) return setError(r.error)
     setArchivos(r.archivos)
   }
 
   const previsualizar = async () => {
-    setProgreso(null)
+    setProgreso({ fase: 'Procesando…' })
     const r = await ejecutar(() => llamar('importar_previsualizar', {
-      departamento: departamento || undefined, archivos_ids: archivos.map(a => a.id), modo_duplicados: modo }))
+      departamento: departamento || undefined, archivos: paraEnviar(archivos), modo_duplicados: modo }))
     setProgreso(null)
     if (r) setPrevia(r)
   }
 
   const confirmar = async () => {
-    setProgreso({ fase: 'Iniciando…', porcentaje: 0 })
+    setProgreso({ fase: 'Importando…' })
     const r = await ejecutar(() => llamar('importar_confirmar', {
-      departamento: departamento || undefined, archivos_ids: archivos.map(a => a.id), modo_duplicados: modo,
+      departamento: departamento || undefined, archivos: paraEnviar(archivos), modo_duplicados: modo,
       solo_validas: previa.totales.filas_con_error > 0 }), 'Importación terminada')
     setConfirmando(false)
     setProgreso(null)
@@ -136,7 +132,7 @@ function ImportarPlantilla() {
       <Panel titulo="2. Archivo" descripcion="Plantilla de URBANITO (hojas EXPEDIENTES y MOVIMIENTOS), dos CSV con esos encabezados, o el consolidado SGCUC/SGAU">
         <div className="filtros">
           <button className="boton primario" onClick={elegir} disabled={ocupado || !!resultado} data-accion="elegir-archivo">Seleccionar archivo…</button>
-          {archivos && archivos.map(a => <span key={a.id} className="mono">{a.nombre} <span className="texto-suave">({(a.tamano / 1048576).toFixed(2)} MB)</span></span>)}
+          {archivos && archivos.map(a => <span key={a.nombre} className="mono">{a.nombre} <span className="texto-suave">({(a.tamano / 1048576).toFixed(2)} MB)</span></span>)}
         </div>
         {archivos && !resultado && (
           <>

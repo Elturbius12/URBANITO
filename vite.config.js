@@ -1,9 +1,9 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
-// base './' para que funcione cargado desde archivo dentro del programa
+// base '/' para que los recursos carguen bien en cualquier ruta de la SPA
 export default defineConfig({
   plugins: [react()],
-  base: './',
+  base: '/',
   build: { outDir: 'dist', emptyOutDir: true, chunkSizeWarningLimit: 2000 },
 })

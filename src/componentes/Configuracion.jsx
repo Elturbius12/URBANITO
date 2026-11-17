@@ -1,19 +1,18 @@
-// Configuración: red, respaldos, feriados, procedimientos y parámetros.
-import { useEffect, useState } from 'react'
+// Configuración: respaldos, feriados, procedimientos y parámetros.
+import { useEffect, useRef, useState } from 'react'
 import { useDatos, llamar, obtenerToken } from '../api'
 import { useApp, Panel, Cargando, ErrorCarga, Aviso, Modal, Campo, Insignia, Pestanas, useAccion } from './Comunes'
 import { numero, fecha, fechaHora, fechaLarga, capitalizar } from '../formato'
 
 export default function Configuracion() {
-  const [pestana, setPestana] = useState('red')
+  const [pestana, setPestana] = useState('respaldos')
   return (
     <>
       <Pestanas activa={pestana} alCambiar={setPestana} opciones={[
-        { clave: 'red', etiqueta: 'Red y equipo' }, { clave: 'respaldos', etiqueta: 'Respaldos' },
+        { clave: 'respaldos', etiqueta: 'Respaldos' },
         { clave: 'feriados', etiqueta: 'Feriados' }, { clave: 'procedimientos', etiqueta: 'Procedimientos y plazos TUPA' },
         { clave: 'parametros', etiqueta: 'Parámetros' }, { clave: 'plantillas', etiqueta: 'Plantillas de observación' },
       ]} />
-      {pestana === 'red' && <Red />}
       {pestana === 'respaldos' && <Respaldos />}
       {pestana === 'feriados' && <Feriados />}
       {pestana === 'procedimientos' && <Procedimientos />}
@@ -23,89 +22,42 @@ export default function Configuracion() {
   )
 }
 
-function Red() {
-  const { notificar } = useApp()
-  const [eq, setEq] = useState(null)
-  const [puerto, setPuerto] = useState('')
-  const [error, setError] = useState(null)
-  const [ocupado, setOcupado] = useState(false)
-  useEffect(() => { window.urbanito.equipo().then(e => { setEq(e); setPuerto(String(e.puerto)) }) }, [])
-  if (!eq) return <Cargando />
-
-  const cambiar = async (habilitar) => {
-    setOcupado(true); setError(null)
-    const r = await window.urbanito.red({ token: obtenerToken(), habilitar, puerto })
-    setOcupado(false)
-    if (!r.ok) return setError(r.error)
-    setEq(r)
-    notificar(habilitar ? 'Conexión en red activada' : 'Conexión en red desactivada', 'exito')
-  }
-
-  if (eq.modo === 'cliente') {
-    return (
-      <Panel titulo="Esta PC está conectada a un servidor">
-        <p>Servidor: <b className="mono">{eq.servidor_url}</b></p>
-        <p className="texto-suave" style={{ fontSize: 13, margin: '8px 0 14px' }}>Los datos, respaldos y la configuración de red se administran en la PC servidor.</p>
-        <button className="boton" onClick={() => { if (window.confirm('¿Cambiar el modo de esta PC? Deberá volver a elegir servidor o conexión.')) window.urbanito.cambiarModo() }}>Cambiar modo de esta PC</button>
-      </Panel>
-    )
-  }
-  return (
-    <div className="dos-columnas">
-      <Panel titulo="Uso en red local" descripcion="Permite que otras PCs de la oficina trabajen con URBANITO sobre los datos de esta PC">
-        <p style={{ marginBottom: 10 }}>Estado: {eq.red_habilitada ? <Insignia tipo="BAJO">Activada</Insignia> : <Insignia>Desactivada</Insignia>}</p>
-        <Campo etiqueta="Puerto" ayuda="Normalmente no hace falta cambiarlo (7301)"><input value={puerto} onChange={e => setPuerto(e.target.value)} style={{ maxWidth: 120 }} /></Campo>
-        <div className="grupo-botones" style={{ marginTop: 12 }}>
-          {!eq.red_habilitada
-            ? <button className="boton primario" disabled={ocupado} onClick={() => cambiar(true)}>Activar conexión en red</button>
-            : <><button className="boton" disabled={ocupado} onClick={() => cambiar(true)}>Aplicar puerto</button>
-                <button className="boton peligro" disabled={ocupado} onClick={() => cambiar(false)}>Desactivar</button></>}
-        </div>
-        {error && <div style={{ marginTop: 10 }}><Aviso tipo="error">{error}</Aviso></div>}
-        {eq.red_habilitada && (
-          <>
-            <div className="separador" />
-            <div className="etiqueta-campo">En las demás PCs, instale URBANITO, elija «Conectarse a la PC servidor» y escriba:</div>
-            {eq.ips.length ? eq.ips.map(i => <div key={i.ip} className="mono resaltado" style={{ fontSize: 18, marginTop: 6 }}>{i.ip}:{eq.puerto} <span className="texto-tenue" style={{ fontSize: 11 }}>({i.interfaz})</span></div>)
-              : <Aviso>Esta PC no tiene una red activa.</Aviso>}
-            <p className="texto-suave" style={{ fontSize: 12.5, marginTop: 10 }}>Si Windows pregunta por el Firewall, elija «Permitir acceso» en redes privadas.
-              Esta PC debe permanecer encendida y con URBANITO abierto mientras otros trabajen.</p>
-          </>
-        )}
-      </Panel>
-      <Panel titulo="Este equipo">
-        <table className="tabla"><tbody>
-          <tr><td>Versión de URBANITO</td><td className="mono">{eq.version}</td></tr>
-          <tr><td>Modo</td><td>PC servidor (guarda los datos)</td></tr>
-          <tr><td>Carpeta de datos</td><td className="mono" style={{ fontSize: 11.5, wordBreak: 'break-all' }}>{eq.carpeta_datos}</td></tr>
-        </tbody></table>
-        <div className="grupo-botones" style={{ marginTop: 10 }}>
-          <button className="boton pequeno" onClick={() => window.urbanito.abrirCarpetaDatos({ token: obtenerToken() })}>Abrir carpeta de datos</button>
-        </div>
-      </Panel>
-    </div>
-  )
-}
-
 function Respaldos() {
   const { notificar, version, refrescar } = useApp()
   const { datos, error, recargar } = useDatos('respaldos', {}, [version])
   const { ocupado, ejecutar } = useAccion()
-  const [esCliente, setEsCliente] = useState(false)
-  useEffect(() => { window.urbanito.equipo().then(e => setEsCliente(e.modo === 'cliente')) }, [])
+  const entrada = useRef(null)
   if (error) return <ErrorCarga error={error} reintentar={recargar} />
   if (!datos) return <Cargando />
 
-  const restaurar = async (nombre) => {
-    const r = await window.urbanito.restaurarRespaldo({ token: obtenerToken(), nombre })
+  const enviarRestauracion = async (cuerpo) => {
+    if (!window.confirm('Se reemplazarán TODOS los datos actuales por los del respaldo. Antes de restaurar se guardará automáticamente una copia de los datos actuales. Todos los usuarios deberán volver a ingresar.')) return
+    let r
+    try {
+      const res = await fetch('/urbanito/restaurar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${obtenerToken()}` },
+        body: JSON.stringify(cuerpo),
+      })
+      r = await res.json()
+    } catch (_) { r = { ok: false, error: 'No se pudo conectar con el servidor URBANITO.' } }
     if (r.ok) { notificar('Respaldo restaurado. Vuelva a ingresar.', 'exito'); refrescar() }
-    else if (!r.cancelado) notificar(r.error, 'error')
+    else notificar(r.error, 'error')
   }
-  const exportar = async (nombre) => {
-    const r = await window.urbanito.exportarRespaldo({ token: obtenerToken(), nombre })
-    if (r.ok) notificar(`Copiado a ${r.ruta}`, 'exito')
-    else if (!r.cancelado) notificar(r.error, 'error')
+  const restaurar = (nombre) => enviarRestauracion({ nombre })
+  const restaurarArchivo = (e) => {
+    const archivo = e.target.files && e.target.files[0]
+    e.target.value = ''
+    if (!archivo) return
+    const lector = new FileReader()
+    lector.onload = () => {
+      const base64 = String(lector.result).split(',')[1] || ''
+      enviarRestauracion({ nombre_archivo: archivo.name, base64 })
+    }
+    lector.onerror = () => notificar('No se pudo leer el archivo.', 'error')
+    lector.readAsDataURL(archivo)
   }
+  const enlace = (nombre) => `/urbanito/respaldo?token=${encodeURIComponent(obtenerToken() || '')}&nombre=${encodeURIComponent(nombre)}`
 
   return (
     <>
@@ -113,7 +65,8 @@ function Respaldos() {
         a una memoria USB o a otra computadora al menos una vez por semana.</Aviso>
       <div className="grupo-botones" style={{ marginBottom: 12 }}>
         <button className="boton primario" disabled={ocupado} onClick={async () => { await ejecutar(() => llamar('crear_respaldo'), 'Respaldo creado'); recargar() }}>Crear respaldo ahora</button>
-        {!esCliente && <button className="boton" onClick={() => restaurar(null)}>Restaurar desde un archivo…</button>}
+        <button className="boton" onClick={() => entrada.current && entrada.current.click()}>Restaurar desde un archivo…</button>
+        <input ref={entrada} type="file" accept=".db" style={{ display: 'none' }} onChange={restaurarArchivo} />
       </div>
       <Panel sinRelleno titulo={`${datos.length} respaldo(s) en esta PC`}>
         <table className="tabla">
@@ -121,9 +74,8 @@ function Respaldos() {
           <tbody>{datos.map(r => (
             <tr key={r.nombre}><td className="mono" style={{ fontSize: 12 }}>{r.nombre}</td><td>{r.tipo}</td><td>{fechaHora(r.fecha)}</td>
               <td className="num">{numero(r.tamano / 1048576, 1)} MB</td>
-              <td style={{ whiteSpace: 'nowrap' }}>{!esCliente && <>
-                <button className="boton pequeno" onClick={() => exportar(r.nombre)}>Copiar a…</button>{' '}
-                <button className="boton pequeno" onClick={() => restaurar(r.nombre)}>Restaurar</button></>}</td></tr>))}
+              <td style={{ whiteSpace: 'nowrap' }}><a className="boton pequeno" href={enlace(r.nombre)} download={r.nombre}>Descargar</a>{' '}
+                <button className="boton pequeno" onClick={() => restaurar(r.nombre)}>Restaurar</button></td></tr>))}
           </tbody>
         </table>
       </Panel>

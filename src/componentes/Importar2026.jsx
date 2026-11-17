@@ -24,19 +24,18 @@ export default function Importar2026() {
   const [pag, setPag] = useState(1)
   const { ocupado, error, setError, ejecutar } = useAccion()
 
-  useEffect(() => (window.urbanito.alProgreso ? window.urbanito.alProgreso(p => setProgreso(p)) : undefined), [])
 
   const elegir = async () => {
     setError(null); setPrevia(null); setResultado(null); setAnios(null)
-    const r = await window.urbanito.elegirArchivoImportacion({ tipo: 'control2026' })
+    const r = await elegirArchivoImportacion('control2026')
     if (r.cancelado) return
     if (!r.ok) return setError(r.error)
     setArchivo(r.archivos[0])
   }
-  const datos = (extra = {}) => ({ archivos_ids: [archivo.id], anios: anios || undefined, ...opc, ...extra })
+  const datos = (extra = {}) => ({ archivos: paraEnviar([archivo]), anios: anios || undefined, ...opc, ...extra })
 
   const previsualizar = async () => {
-    setProgreso(null)
+    setProgreso({ fase: 'Procesando…' })
     const r = await ejecutar(() => llamar('importar2026_previsualizar', datos()))
     setProgreso(null)
     if (r) {
@@ -45,7 +44,7 @@ export default function Importar2026() {
     }
   }
   const confirmar = async () => {
-    setProgreso({ fase: 'Iniciando…', porcentaje: 0 })
+    setProgreso({ fase: 'Importando…' })
     const r = await ejecutar(() => llamar('importar2026_confirmar', datos()), 'Importación del Control 2026 terminada')
     setConfirmando(false); setProgreso(null)
     if (r) { setResultado(r); setPrevia(null); refrescar() }
@@ -219,18 +218,17 @@ function Tupa() {
   const { ocupado, error, setError, ejecutar } = useAccion()
   const subir = async () => {
     setError(null)
-    const r = await window.urbanito.elegirArchivoImportacion({ tipo: 'tupa' })
+    const r = await elegirArchivoImportacion('tupa')
     if (r.cancelado) return
     if (!r.ok) return setError(r.error)
-    const ok = await ejecutar(() => llamar('subir_tupa', { archivos_ids: [r.archivos[0].id] }), 'Documento TUPA guardado')
+    const ok = await ejecutar(() => llamar('subir_tupa', { archivos: paraEnviar([r.archivos[0]]) }), 'Documento TUPA guardado')
     if (ok) recargar()
   }
   const descargar = async (t) => {
     try {
       const r = await llamar('descargar_tupa', { id: t.id })
-      const g = await window.urbanito.guardarArchivo({ nombre: r.nombre_archivo, base64: r.base64, titulo: 'Guardar documento TUPA' })
-      if (g.ok) notificar(`Guardado: ${g.ruta}`, 'exito')
-      else if (!g.cancelado) notificar(g.error, 'error')
+      descargarBase64(r.nombre_archivo, r.base64)
+      notificar(`Descargado: ${r.nombre_archivo}`, 'exito')
     } catch (e) { notificar(e.message, 'error') }
   }
   return (

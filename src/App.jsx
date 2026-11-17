@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useState, useCallback } from 'react'
 import { llamar, fijarToken, alExpirarSesion, fijarDepartamentoActivo } from './api'
 import { Contexto, useNotificaciones, puede, Cargando, Modal } from './componentes/Comunes'
-import { ElegirModo, ConfiguracionInicial, Ingreso, CambiarClave } from './componentes/Acceso'
+import { ConfiguracionInicial, Ingreso, CambiarClave } from './componentes/Acceso'
 import Inicio from './componentes/Inicio'
 import MesaPartes from './componentes/MesaPartes'
 import Bandeja from './componentes/Bandeja'
@@ -66,7 +66,6 @@ const SECCIONES = [
 const GRUPOS = ['Gestión diaria', 'Análisis', 'Administración']
 
 export default function App() {
-  const [equipo, setEquipo] = useState(null)
   const [estado, setEstado] = useState(null)
   const [sesion, setSesion] = useState(null)
   const [error, setError] = useState(null)
@@ -74,9 +73,6 @@ export default function App() {
 
   const cargarEstado = useCallback(async () => {
     setError(null)
-    const eq = await window.urbanito.equipo()
-    setEquipo(eq)
-    if (!eq.modo) return
     try {
       setEstado(await llamar('estado_inicial'))
     } catch (e) {
@@ -94,8 +90,6 @@ export default function App() {
     })
   }, [notificar])
 
-  if (!equipo) return <Cargando texto="Iniciando URBANITO…" />
-  if (!equipo.modo) return <>{vistaNotificaciones}<ElegirModo alListo={cargarEstado} /></>
   if (error) {
     return (
       <div className="acceso"><div className="tarjeta-acceso">
@@ -103,7 +97,6 @@ export default function App() {
         <p style={{ margin: '12px 0' }}>{error}</p>
         <div className="grupo-botones">
           <button className="boton primario" onClick={cargarEstado}>Reintentar</button>
-          <button className="boton" onClick={() => window.urbanito.cambiarModo()}>Cambiar modo de esta PC</button>
         </div>
       </div></div>
     )
@@ -111,17 +104,17 @@ export default function App() {
   if (!estado) return <Cargando texto="Cargando datos…" />
   if (estado.requiere_configuracion) return <ConfiguracionInicial estado={estado} alListo={cargarEstado} />
   if (!sesion) {
-    return <>{vistaNotificaciones}<Ingreso estado={estado} equipo={equipo} alIngresar={(r) => { fijarToken(r.token); setSesion(r.usuario) }} /></>
+    return <>{vistaNotificaciones}<Ingreso estado={estado} alIngresar={(r) => { fijarToken(r.token); setSesion(r.usuario) }} /></>
   }
   if (sesion.debe_cambiar_clave) {
     return <CambiarClave usuario={sesion} obligatorio alListo={(u) => setSesion(u)} />
   }
-  return <Marco usuario={sesion} equipo={equipo} estado={estado} notificar={notificar}
+  return <Marco usuario={sesion} estado={estado} notificar={notificar}
                 vistaNotificaciones={vistaNotificaciones} setUsuario={setSesion}
                 salir={async () => { try { await llamar('logout') } catch (_) { /* ya cerrada */ } fijarToken(null); setSesion(null) }} />
 }
 
-function Marco({ usuario, equipo, estado, notificar, vistaNotificaciones, salir, setUsuario }) {
+function Marco({ usuario, estado, notificar, vistaNotificaciones, salir, setUsuario }) {
   const [seccion, setSeccion] = useState('inicio')
   const [parametros, setParametros] = useState({})
   const [version, setVersion] = useState(0)
@@ -167,8 +160,8 @@ function Marco({ usuario, equipo, estado, notificar, vistaNotificaciones, salir,
   }, [revisarReporte])
 
   const ctx = useMemo(() => ({
-    usuario, equipo, estado, notificar, refrescar, version, ir, abrirFicha: setFichaId, depActivo,
-  }), [usuario, equipo, estado, notificar, refrescar, version, ir, depActivo])
+    usuario, estado, notificar, refrescar, version, ir, abrirFicha: setFichaId, depActivo,
+  }), [usuario, estado, notificar, refrescar, version, ir, depActivo])
 
   const visibles = SECCIONES.filter(s => !s.permiso || puede(usuario, s.permiso))
   const actual = SECCIONES.find(s => s.clave === seccion) || SECCIONES[0]
@@ -238,7 +231,6 @@ function Marco({ usuario, equipo, estado, notificar, vistaNotificaciones, salir,
                 </label>
               )}
               <span>{contadores ? capitalizar(fechaLarga(contadores.hoy)) : ''}</span>
-              <span className="chip-modo">{equipo.modo === 'cliente' ? 'Conectado en red' : 'PC servidor'}</span>
               <Campana alAbrirReporte={() => { revisarReporte(); setVerReporte(true) }} />
             </div>
           </header>

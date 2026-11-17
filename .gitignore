@@ -5,3 +5,5 @@ distribucion/
 *.log
 credenciales*
 .env
+urbanito.db
+respaldos/

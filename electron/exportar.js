@@ -1,7 +1,6 @@
-// Generación de archivos de reporte en la PC del usuario: Excel y PDF.
+// Generación de reportes en Excel (en memoria; el servidor web lo envía como descarga).
 
 const ExcelJS = require('exceljs')
-const { BrowserWindow } = require('electron')
 
 const AZUL = 'FF1F3A68'
 
@@ -14,7 +13,7 @@ function valorCelda(v, formato) {
   return v
 }
 
-async function generarExcel(spec, ruta) {
+async function generarExcel(spec) {
   const libro = new ExcelJS.Workbook()
   libro.creator = 'URBANITO'
   libro.created = new Date()
@@ -52,36 +51,7 @@ async function generarExcel(spec, ruta) {
     h.views = [{ state: 'frozen', ySplit: 4 }]
     if (hoja.filas.length) h.autoFilter = { from: { row: 4, column: 1 }, to: { row: 4 + hoja.filas.length, column: ncol } }
   }
-  await libro.xlsx.writeFile(ruta)
+  return Buffer.from(await libro.xlsx.writeBuffer())
 }
 
-async function ventanaOculta(html) {
-  const w = new BrowserWindow({ show: false, webPreferences: { sandbox: true, contextIsolation: true, javascript: false } })
-  await w.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`)
-  return w
-}
-
-async function generarPdf(html, ruta, { horizontal = false } = {}) {
-  const w = await ventanaOculta(html)
-  try {
-    const datos = await w.webContents.printToPDF({
-      pageSize: 'A4', landscape: horizontal, printBackground: true,
-      margins: { top: 0.4, bottom: 0.4, left: 0.4, right: 0.4 },
-    })
-    require('fs').writeFileSync(ruta, datos)
-  } finally {
-    w.destroy()
-  }
-}
-
-async function imprimir(html) {
-  const w = await ventanaOculta(html)
-  return new Promise((resolve) => {
-    w.webContents.print({ silent: false, printBackground: true }, (exito, motivo) => {
-      w.destroy()
-      resolve({ ok: exito, motivo: exito ? null : motivo })
-    })
-  })
-}
-
-module.exports = { generarExcel, generarPdf, imprimir }
+module.exports = { generarExcel }

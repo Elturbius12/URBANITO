@@ -1,4 +1,4 @@
-// Pantallas previas al uso: modo del equipo, configuración inicial, ingreso.
+// Pantallas previas al uso: configuración inicial, ingreso.
 import { useState } from 'react'
 import { llamar } from '../api'
 import { Aviso, Campo } from './Comunes'
@@ -13,56 +13,6 @@ function Marca({ institucion }) {
         {institucion?.nombre || 'Municipalidad Provincial de San Román'} — {institucion?.ciudad || 'Juliaca'}
       </div>
     </>
-  )
-}
-
-export function ElegirModo({ alListo }) {
-  const [modo, setModo] = useState('servidor')
-  const [direccion, setDireccion] = useState('')
-  const [error, setError] = useState(null)
-  const [ocupado, setOcupado] = useState(false)
-
-  const continuar = async () => {
-    setOcupado(true); setError(null)
-    const r = await window.urbanito.elegirModo({ modo, servidor_url: direccion })
-    setOcupado(false)
-    if (!r.ok) return setError(r.error)
-    alListo()
-  }
-
-  return (
-    <div className="acceso">
-      <div className="tarjeta-acceso ancha">
-        <Marca />
-        <h3 style={{ marginBottom: 10 }}>¿Cómo se usará URBANITO en esta computadora?</h3>
-        <button className={`opcion-modo${modo === 'servidor' ? ' activa' : ''}`} onClick={() => setModo('servidor')}>
-          <div className="t">Esta PC guarda los datos (servidor)</div>
-          <div className="d">Elija esta opción en una sola computadora de la oficina, o si URBANITO se usará en una sola PC.
-            Aquí quedará la base de datos y sus respaldos.</div>
-        </button>
-        <button className={`opcion-modo${modo === 'cliente' ? ' activa' : ''}`} onClick={() => setModo('cliente')}>
-          <div className="t">Conectarse a la PC servidor de la oficina</div>
-          <div className="d">Para las demás computadoras. Trabajarán sobre los mismos datos que la PC servidor,
-            a través de la red local.</div>
-        </button>
-        {modo === 'cliente' && (
-          <Campo etiqueta="Dirección de la PC servidor" requerido
-                 ayuda="La muestra el administrador en Configuración → Red, por ejemplo 192.168.1.20">
-            <input value={direccion} onChange={e => setDireccion(e.target.value)} placeholder="192.168.1.20" autoFocus />
-          </Campo>
-        )}
-        {error && <Aviso tipo="error">{error}</Aviso>}
-        <button className="boton primario grande" style={{ width: '100%', justifyContent: 'center', marginTop: 8 }}
-                disabled={ocupado || (modo === 'cliente' && !direccion.trim())} onClick={continuar}>
-          {ocupado ? 'Preparando…' : 'Continuar'}
-        </button>
-        {modo === 'servidor' && (
-          <p className="texto-tenue" style={{ fontSize: 12, marginTop: 10 }}>
-            La primera vez se cargan los expedientes reales importados del sistema anterior (SGCUC y SGAU). Puede tardar unos segundos.
-          </p>
-        )}
-      </div>
-    </div>
   )
 }
 
@@ -139,7 +89,7 @@ export function ConfiguracionInicial({ estado, alListo }) {
   )
 }
 
-export function Ingreso({ estado, equipo, alIngresar }) {
+export function Ingreso({ estado, alIngresar }) {
   const [usuario, setUsuario] = useState('')
   const [clave, setClave] = useState('')
   const [error, setError] = useState(null)
@@ -163,14 +113,6 @@ export function Ingreso({ estado, equipo, alIngresar }) {
         {error && <Aviso tipo="error">{error}</Aviso>}
         <button type="submit" className="boton primario grande" style={{ width: '100%', justifyContent: 'center' }}
                 disabled={ocupado || !usuario || !clave}>{ocupado ? 'Verificando…' : 'Ingresar'}</button>
-        <div className="texto-tenue" style={{ fontSize: 11.5, marginTop: 14, display: 'flex', justifyContent: 'space-between' }}>
-          <span>{equipo?.modo === 'cliente' ? `Conectado a ${equipo.servidor_url}` : 'Esta PC es el servidor de datos'}</span>
-          <span>v{equipo?.version}</span>
-        </div>
-        <button type="button" className="texto-tenue" style={{ fontSize: 11.5, marginTop: 6, textDecoration: 'underline' }}
-                onClick={() => { if (window.confirm('¿Cambiar el modo de esta PC (servidor / conectarse a otra PC)? Los datos guardados no se borran.')) window.urbanito.cambiarModo() }}>
-          Cambiar modo de esta PC
-        </button>
       </form>
     </div>
   )

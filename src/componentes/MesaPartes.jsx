@@ -253,8 +253,8 @@ function CredencialesPortal({ c }) {
       <p className="texto-suave" style={{ fontSize: 12, margin: '6px 0' }}>Entréguelas al ciudadano: no se volverán a mostrar. En su primer ingreso deberá cambiar la contraseña.</p>
       <div className="grupo-botones">
         {c.enlace_whatsapp
-          ? <button className="boton exito" onClick={async () => { const r = await window.urbanito.abrirEnlace(c.enlace_whatsapp); if (!r.ok) notificar(r.error, 'error') }} data-accion="whatsapp">
-              Enviar credenciales por WhatsApp</button>
+          ? <a className="boton exito" href={c.enlace_whatsapp} target="_blank" rel="noreferrer" data-accion="whatsapp">
+              Enviar credenciales por WhatsApp</a>
           : <span className="texto-suave" style={{ fontSize: 12.5 }}>Sin número de WhatsApp registrado.</span>}
         <button className="boton" onClick={copiar}>Copiar mensaje</button>
       </div>

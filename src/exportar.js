@@ -1,23 +1,59 @@
 // Ayudantes para exportar a Excel y PDF desde cualquier pantalla.
 import { escaparHtml as h, fecha, fechaHora } from './formato'
+import { obtenerToken } from './api'
+import { descargarBlob } from './archivos'
 
 export async function exportarExcel(notificar, archivo, hojas) {
-  const r = await window.urbanito.excel({ archivo, hojas })
-  if (r.ok) notificar(`Archivo guardado: ${r.ruta}`, 'exito')
-  else if (!r.cancelado) notificar(r.error || 'No se pudo guardar', 'error')
+  const nombre = `${archivo || 'reporte'}.xlsx`
+  let r
+  try {
+    const t = obtenerToken()
+    const res = await fetch('/urbanito/excel', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(t ? { Authorization: `Bearer ${t}` } : {}) },
+      body: JSON.stringify({ archivo, hojas }),
+    })
+    if (!res.ok) {
+      let error = `El servidor respondió con un error (${res.status}).`
+      try { error = (await res.json()).error || error } catch (_) { /* sin cuerpo */ }
+      r = { ok: false, error }
+    } else {
+      descargarBlob(nombre, await res.blob())
+      r = { ok: true, ruta: nombre }
+    }
+  } catch (_) {
+    r = { ok: false, error: 'No se pudo conectar con el servidor URBANITO.' }
+  }
+  if (r.ok) notificar(`Archivo descargado: ${r.ruta}`, 'exito')
+  else notificar(r.error || 'No se pudo guardar', 'error')
   return r
 }
 
+// Abre el documento en una ventana nueva y lanza el diálogo de impresión del
+// navegador (desde ahí también se puede «Guardar como PDF»).
+function abrirEImprimir(html, horizontal = false) {
+  const w = window.open('', '_blank')
+  if (!w) return { ok: false, motivo: 'El navegador bloqueó la ventana emergente. Permita ventanas emergentes para este sitio.' }
+  const pagina = horizontal ? html.replace('</style>', '@page { size: A4 landscape; }</style>') : html.replace('</style>', '@page { size: A4; }</style>')
+  w.document.open()
+  w.document.write(pagina)
+  w.document.close()
+  const lanzar = () => { w.focus(); w.print() }
+  if (w.document.readyState === 'complete') setTimeout(lanzar, 50)
+  else w.addEventListener('load', lanzar)
+  return { ok: true }
+}
+
 export async function exportarPdf(notificar, archivo, html, horizontal = false) {
-  const r = await window.urbanito.pdf({ archivo, html, horizontal })
-  if (r.ok) notificar(`PDF guardado: ${r.ruta}`, 'exito')
-  else if (!r.cancelado) notificar(r.error || 'No se pudo generar el PDF', 'error')
+  const conTitulo = html.replace('<head>', `<head><title>${h(archivo || 'documento')}</title>`)
+  const r = abrirEImprimir(conTitulo, horizontal)
+  if (!r.ok) notificar(r.motivo, 'error')
   return r
 }
 
 export async function imprimir(notificar, html) {
-  const r = await window.urbanito.imprimir({ html })
-  if (!r.ok && r.motivo && r.motivo !== 'cancelled') notificar(`No se pudo imprimir: ${r.motivo}`, 'error')
+  const r = abrirEImprimir(html)
+  if (!r.ok) notificar(`No se pudo imprimir: ${r.motivo}`, 'error')
   return r
 }
 
