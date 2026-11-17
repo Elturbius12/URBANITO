@@ -17,14 +17,15 @@ npm start            # http://localhost:3000
 | Variable  | Por defecto      | Uso                                                        |
 |-----------|------------------|------------------------------------------------------------|
 | `PORT`    | `3000`           | Puerto HTTP (Railway lo define solo).                      |
-| `DB_PATH` | `./urbanito.db`  | Archivo de la base. Los respaldos van a `respaldos/` junto a él. |
+| `DB_PATH` | `./semilla/urbanito.db` | Archivo de la base. Los respaldos van a `respaldos/` junto a él. |
 
-Si el archivo no existe, se crea copiando `semilla/urbanito.db`.
+**No hace falta copiar la base a mano:** si el archivo de `DB_PATH` no existe, el servidor lo crea
+automáticamente copiando `semilla/urbanito.db` (igual que hacía la versión de escritorio).
 
 ## Despliegue en Railway
 
-1. Cree el servicio desde este repositorio. `railway.json` ya indica
-   build `npm run build` y arranque `npm start` (healthcheck en `/urbanito/ping`).
+1. Cree el servicio desde este repositorio. `railway.json` usa Nixpacks (que ejecuta
+   `npm run build`) y arranca con `npm start`.
 2. **Cree un Volume** y móntelo en el servicio, por ejemplo en `/data`.
 3. Defina la variable **`DB_PATH=/data/urbanito.db`**.
    Sin el Volume, la base y los respaldos se pierden en cada redespliegue.

@@ -2,7 +2,7 @@
 //   npm run build && npm start
 // Variables de entorno:
 //   PORT     puerto de escucha (por defecto 3000)
-//   DB_PATH  ruta del archivo urbanito.db (por defecto ./urbanito.db). En Railway,
+//   DB_PATH  ruta del archivo urbanito.db (por defecto ./semilla/urbanito.db). En Railway,
 //            apúntela al Volume, p. ej. /data/urbanito.db. Los respaldos se guardan
 //            en la carpeta «respaldos» junto a la base.
 
@@ -17,7 +17,7 @@ const { despachar, CON_ARCHIVO } = require('./electron/servicios/api')
 const { generarExcel } = require('./electron/exportar')
 
 const RAIZ = __dirname
-const RUTA_BD = path.resolve(process.env.DB_PATH || path.join(RAIZ, 'urbanito.db'))
+const RUTA_BD = path.resolve(process.env.DB_PATH || path.join(RAIZ, 'semilla', 'urbanito.db'))
 const CARPETA_DATOS = path.dirname(RUTA_BD)
 const CARPETA_RESPALDOS = path.join(CARPETA_DATOS, 'respaldos')
 const RUTA_REGISTRO = path.join(CARPETA_DATOS, 'registro.log')
@@ -234,7 +234,7 @@ const servidor = http.createServer((req, res) => {
 })
 servidor.requestTimeout = 15 * 60 * 1000
 
-servidor.listen(PUERTO, () => {
+servidor.listen(PUERTO, '0.0.0.0', () => {
   console.log(`URBANITO escuchando en el puerto ${PUERTO} (base: ${RUTA_BD})`)
 })
 

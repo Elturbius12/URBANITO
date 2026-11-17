@@ -13,7 +13,8 @@ function valorCelda(v, formato) {
   return v
 }
 
-async function generarExcel(spec) {
+// Sin «ruta» devuelve el Buffer del .xlsx; con «ruta» lo escribe en disco (como antes).
+async function generarExcel(spec, ruta) {
   const libro = new ExcelJS.Workbook()
   libro.creator = 'URBANITO'
   libro.created = new Date()
@@ -51,6 +52,7 @@ async function generarExcel(spec) {
     h.views = [{ state: 'frozen', ySplit: 4 }]
     if (hoja.filas.length) h.autoFilter = { from: { row: 4, column: 1 }, to: { row: 4 + hoja.filas.length, column: ncol } }
   }
+  if (ruta) return libro.xlsx.writeFile(ruta)
   return Buffer.from(await libro.xlsx.writeBuffer())
 }
 

@@ -1,11 +1,4 @@
 {
-  "$schema": "https://railway.com/railway.schema.json",
-  "build": {
-    "buildCommand": "npm run build"
-  },
-  "deploy": {
-    "startCommand": "npm start",
-    "healthcheckPath": "/urbanito/ping",
-    "restartPolicyType": "ON_FAILURE"
-  }
+  "build": { "builder": "NIXPACKS" },
+  "deploy": { "startCommand": "npm start" }
 }

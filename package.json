@@ -6,6 +6,7 @@
   "author": "Howard Lemuel Coila Alberto",
   "license": "UNLICENSED",
   "private": true,
+  "main": "servidor.js",
   "scripts": {
     "build": "vite build",
     "start": "node servidor.js",
